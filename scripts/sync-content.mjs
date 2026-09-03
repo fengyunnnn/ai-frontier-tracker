@@ -1,0 +1,86 @@
+import { readFile, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(here, "..");
+const defaultSource = path.resolve(
+  projectRoot,
+  "content",
+  "行业动态追踪.md",
+);
+const source = process.env.SOURCE_MARKDOWN
+  ? path.resolve(process.env.SOURCE_MARKDOWN)
+  : defaultSource;
+
+const raw = (await readFile(source, "utf8")).replace(/\r\n/g, "\n");
+const sourceStat = await stat(source);
+const headingPattern = /^(一|二|三|四|五|六|七|八)、([^\n]+)$/gm;
+const headings = [...raw.matchAll(headingPattern)];
+const sections = headings.map((match, index) => ({
+  id: `section-${index + 1}`,
+  numeral: match[1],
+  title: match[2].trim(),
+  body: raw.slice(
+    match.index + match[0].length,
+    headings[index + 1]?.index ?? raw.length,
+  ).trim(),
+}));
+
+const overviewBody = sections.find((section) => section.title === "总览")?.body ?? "";
+const overviewLines = overviewBody.split("\n").map((line) => line.trim()).filter(Boolean);
+const directions = [];
+for (let index = 0; index < overviewLines.length; index += 1) {
+  const match = overviewLines[index].match(/^(\d+)\.\s*(.+)$/);
+  if (match && Number(match[1]) <= 4) {
+    directions.push({
+      index: match[1],
+      title: match[2],
+      detail: overviewLines[index + 1] ?? "",
+    });
+  }
+}
+
+const highlights = [];
+const summaryBody = sections.find((section) => section.title === "本期重点摘要")?.body ?? "";
+for (const line of summaryBody.split("\n")) {
+  if (!line.startsWith("|") || /^\|[-|\s]+\|$/.test(line) || line.includes("| 事件 |")) continue;
+  const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
+  if (cells.length >= 6) {
+    highlights.push({
+      event: cells[0],
+      type: cells[1],
+      keywords: cells[2],
+      impact: cells[3],
+      source: cells[4],
+      date: cells[5],
+    });
+  }
+}
+
+const coverage = raw.match(/(20\d{2}年\d{2}月\d{2}日\s*[—-]\s*20\d{2}年\d{2}月\d{2}日)/)?.[1] ?? "持续更新";
+const officialLinks = new Set(raw.match(/https?:\/\/[^\s)]+/g) ?? []);
+const report = {
+  title: "语音交互与 AI 人机交互行业动态追踪",
+  subtitle: "把外部变化转化为可核验的行业判断、平台能力输入与产品验证建议",
+  coverage,
+  sourceName: path.basename(source),
+  sourceUpdatedAt: sourceStat.mtime.toISOString(),
+  directions,
+  highlights,
+  sections,
+  metrics: {
+    directions: directions.length,
+    highlights: highlights.length,
+    sections: sections.length,
+    sources: officialLinks.size,
+  },
+};
+
+await writeFile(
+  path.resolve(projectRoot, "app", "content.generated.ts"),
+  `export const report = ${JSON.stringify(report, null, 2)} as const;\n`,
+  "utf8",
+);
+
+console.log(`Synced ${path.basename(source)}: ${sections.length} sections, ${highlights.length} highlights.`);
