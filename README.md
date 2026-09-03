@@ -29,7 +29,11 @@
 2. 在仓库 `Settings → Pages → Build and deployment` 中选择 `GitHub Actions`。
 3. 每次推送到 `main` 后，`.github/workflows/deploy-pages.yml` 会自动构建和发布网页。
 
-仓库当前未配置远程地址，因此首次发布前需要先创建或选择一个 GitHub 仓库并添加 remote。
+当前发布地址：`https://fengyunnnn.github.io/ai-frontier-tracker/`。
+
+## 版本记录
+
+网页能力的已发布内容、下一版本规划和趋势状态启用原则统一记录在 `CHANGELOG.md`。规划项在实际交付前保留在“待发布”区，完成部署后再填写正式版本号和发布日期。
 
 ## 校验命令
 
@@ -41,6 +45,7 @@
 
 - `scripts/sync-content.mjs`：Markdown 解析与字段提取。
 - `content/行业动态追踪.md`：唯一内容源。
+- `CHANGELOG.md`：网页版本、规划和重要规则变化记录。
 - `app/content.generated.ts`：自动生成的数据文件，请勿手工编辑。
 - `app/trend-explorer.tsx`：网页信息架构与交互。
 - `app/globals.css`：视觉样式与响应式布局。
