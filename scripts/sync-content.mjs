@@ -17,15 +17,26 @@ const raw = (await readFile(source, "utf8")).replace(/\r\n/g, "\n");
 const sourceStat = await stat(source);
 const headingPattern = /^(一|二|三|四|五|六|七|八)、([^\n]+)$/gm;
 const headings = [...raw.matchAll(headingPattern)];
-const sections = headings.map((match, index) => ({
-  id: `section-${index + 1}`,
-  numeral: match[1],
-  title: match[2].trim(),
-  body: raw.slice(
+const sections = headings.map((match, index) => {
+  const id = `section-${index + 1}`;
+  const body = raw.slice(
     match.index + match[0].length,
     headings[index + 1]?.index ?? raw.length,
-  ).trim(),
-}));
+  ).trim();
+  const subsectionPattern = /^(#{2,3})\s+(.+)$/gm;
+  const subsections = [...body.matchAll(subsectionPattern)].map((subsection, subIndex) => ({
+    id: `${id}-sub-${subIndex + 1}`,
+    title: subsection[2].trim(),
+    level: subsection[1].length,
+  }));
+  return {
+    id,
+    numeral: match[1],
+    title: match[2].trim(),
+    body,
+    subsections,
+  };
+});
 
 const overviewBody = sections.find((section) => section.title === "总览")?.body ?? "";
 const overviewLines = overviewBody.split("\n").map((line) => line.trim()).filter(Boolean);

@@ -5,18 +5,41 @@ import { marked } from "marked";
 import { report } from "./content.generated";
 
 type Section = (typeof report.sections)[number];
+type Subsection = Section["subsections"][number];
 
-function renderMarkdown(content: string) {
-  return marked.parse(content, { gfm: true, breaks: true }) as string;
+function escapeHtml(content: string) {
+  return content
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function renderMarkdown(section: Section) {
+  let headingIndex = 0;
+  const contentWithAnchors = section.body.replace(
+    /^(#{2,3})\s+(.+)$/gm,
+    (line, markers: string, title: string) => {
+      const subsection = section.subsections[headingIndex];
+      headingIndex += 1;
+      if (!subsection) return line;
+      const level = markers.length;
+      return `<h${level} id="${subsection.id}" tabindex="-1">${escapeHtml(title.trim())}</h${level}>`;
+    },
+  );
+  return marked.parse(contentWithAnchors, { gfm: true, breaks: true }) as string;
 }
 
 export function TrendExplorer() {
   const initialSectionId = typeof window === "undefined"
     ? undefined
     : window.location.hash.replace("#", "");
+  const initialSection = report.sections.find(
+    (section) => section.id === initialSectionId
+      || section.subsections.some((subsection) => subsection.id === initialSectionId),
+  );
   const [activeId, setActiveId] = useState(
-    report.sections.some((section) => section.id === initialSectionId)
-      ? initialSectionId
+    initialSection
+      ? initialSection.id
       : report.sections[1]?.id ?? report.sections[0]?.id,
   );
   const [query, setQuery] = useState("");
@@ -97,6 +120,17 @@ export function TrendExplorer() {
     setQuery("");
     window.history.replaceState(null, "", `#${section.id}`);
     document.getElementById("report-explorer")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const chooseSubsection = (section: Section, subsection: Subsection) => {
+    setActiveId(section.id);
+    setQuery("");
+    window.history.replaceState(null, "", `#${subsection.id}`);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById(subsection.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
   };
 
   const findHighlightSection = (event: string) => (
@@ -276,17 +310,34 @@ export function TrendExplorer() {
         <div className="explorer" id="report-explorer">
           <nav className="side-nav" aria-label="报告章节">
             <p>REPORT INDEX · {report.metrics.sections} CHAPTERS</p>
-            {report.sections.map((section) => (
-              <button
-                className={`nav-button ${section.id === active.id ? "active" : ""}`}
-                key={section.id}
-                onClick={() => chooseSection(section)}
-                type="button"
-                aria-current={section.id === active.id ? "page" : undefined}
-              >
-                {section.numeral}、{section.title}
-              </button>
-            ))}
+            <div className="primary-nav-list">
+              {report.sections.map((section) => (
+                <button
+                  className={`nav-button ${section.id === active.id ? "active" : ""}`}
+                  key={section.id}
+                  onClick={() => chooseSection(section)}
+                  type="button"
+                  aria-current={section.id === active.id ? "page" : undefined}
+                >
+                  {section.numeral}、{section.title}
+                </button>
+              ))}
+            </div>
+            {active.subsections.length > 0 && (
+              <div className="sub-nav" aria-label={`${active.title}二级导航`}>
+                <span>本章目录</span>
+                {active.subsections.map((subsection) => (
+                  <button
+                    className={subsection.level === 3 ? "sub-nav-button nested" : "sub-nav-button"}
+                    key={subsection.id}
+                    onClick={() => chooseSubsection(active, subsection)}
+                    type="button"
+                  >
+                    {subsection.title}
+                  </button>
+                ))}
+              </div>
+            )}
           </nav>
 
           <div className="content-panel">
@@ -294,7 +345,7 @@ export function TrendExplorer() {
               <h2>{active.numeral}、{active.title}</h2>
               <div
                 className="markdown-body"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(active.body) }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(active) }}
               />
             </article>
           </div>
