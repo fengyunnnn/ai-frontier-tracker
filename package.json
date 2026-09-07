@@ -13,7 +13,7 @@
     "prebuild": "node scripts/sync-content.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node scripts/sync-content.mjs && node --test tests/content-sync.test.mjs",
+    "test": "node scripts/sync-content.mjs && node --test tests/content-sync.test.mjs tests/governance.test.mjs",
     "lint": "eslint app/main.tsx app/trend-explorer.tsx vite.config.ts",
     "check": "pnpm test && pnpm lint && pnpm build"
   },

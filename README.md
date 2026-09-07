@@ -35,6 +35,16 @@
 
 网页能力的已发布内容、下一版本规划和趋势状态启用原则统一记录在 `CHANGELOG.md`。规划项在实际交付前保留在“待发布”区，完成部署后再填写正式版本号和发布日期。
 
+## 维护规范
+
+- `AGENTS.md`：人工与 AI 均需遵守的项目边界。
+- `docs/ARCHITECTURE.md`：数据流、文件职责和依赖方向。
+- `docs/CONTENT_SCHEMA.md`：Markdown 标题、日期、字段和内部进展格式。
+- `CONTRIBUTING.md`：内容、视觉、交互、数据格式和发布的操作流程。
+- `.github/pull_request_template.md`：每次变更的提交前检查清单。
+
+核心判断口诀：改“说什么”就改 Markdown；改“怎么排列和操作”就改 TSX；改“长什么样”就改 CSS；改“如何识别数据”才改同步脚本。
+
 ## 校验命令
 
 - `pnpm test`：检查 Markdown 是否成功生成网页数据。
@@ -49,3 +59,7 @@
 - `app/content.generated.ts`：自动生成的数据文件，请勿手工编辑。
 - `app/trend-explorer.tsx`：网页信息架构与交互。
 - `app/globals.css`：视觉样式与响应式布局。
+- `AGENTS.md`：不可破坏的长期维护边界。
+- `docs/CONTENT_SCHEMA.md`：Markdown 内容契约。
+- `docs/ARCHITECTURE.md`：项目架构说明。
+- `CONTRIBUTING.md`：修改、校验与发布 SOP。
