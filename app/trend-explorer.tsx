@@ -6,6 +6,7 @@ import { report } from "./content.generated";
 
 type Section = (typeof report.sections)[number];
 type Subsection = Section["subsections"][number];
+type ContentHeading = Section["contentHeadings"][number];
 type ReadingMode = "single" | "all";
 
 const searchScopes = [
@@ -29,13 +30,13 @@ function escapeHtml(content: string) {
 function renderMarkdown(section: Section) {
   let headingIndex = 0;
   const contentWithAnchors = section.body.replace(
-    /^(#{2,3})\s+(.+)$/gm,
+    /^(#{2,4})\s+(.+?)(?:\s+\{#[a-z0-9][a-z0-9-]*\})?\s*$/gm,
     (line, markers: string, title: string) => {
-      const subsection = section.subsections[headingIndex];
+      const contentHeading = section.contentHeadings[headingIndex];
       headingIndex += 1;
-      if (!subsection) return line;
+      if (!contentHeading) return line;
       const level = markers.length;
-      return `<h${level} id="${subsection.id}" tabindex="-1">${escapeHtml(title.trim())}</h${level}>`;
+      return `<h${level} id="${contentHeading.id}" tabindex="-1">${escapeHtml(title.trim())}</h${level}>`;
     },
   );
   return marked.parse(contentWithAnchors, { gfm: true, breaks: true }) as string;
@@ -65,13 +66,118 @@ function getSectionKeywords(section: Section) {
   return candidates.filter((keyword) => text.toLowerCase().includes(keyword.toLowerCase())).slice(0, 3);
 }
 
+type InternalCapability = { id: string; title: string; body: string };
+type InternalCategory = { id: string; title: string; body: string; capabilities: InternalCapability[] };
+type InternalGroup = { id: string; title: string; body: string; categories: InternalCategory[]; capabilities: InternalCapability[] };
+
+function parseInternalProgress(section: Section) {
+  const result: { preamble: string; groups: InternalGroup[] } = { preamble: "", groups: [] };
+  let group: InternalGroup | undefined;
+  let category: InternalCategory | undefined;
+  let capability: InternalCapability | undefined;
+  let headingIndex = 0;
+  let buffer: string[] = [];
+
+  const flush = () => {
+    const body = buffer.join("\n").trim();
+    if (capability) capability.body = body;
+    else if (category) category.body = body;
+    else if (group) group.body = body;
+    else result.preamble = body;
+    buffer = [];
+  };
+
+  section.body.split("\n").forEach((line) => {
+    const headingMatch = line.match(/^(#{2,4})\s+(.+?)(?:\s+\{#[a-z0-9][a-z0-9-]*\})?\s*$/);
+    if (!headingMatch) {
+      buffer.push(line);
+      return;
+    }
+    flush();
+    const heading = section.contentHeadings[headingIndex];
+    headingIndex += 1;
+    if (!heading) return;
+    if (heading.level === 2) {
+      group = { id: heading.id, title: heading.title, body: "", categories: [], capabilities: [] };
+      result.groups.push(group);
+      category = undefined;
+      capability = undefined;
+    } else if (heading.level === 3 && group) {
+      category = { id: heading.id, title: heading.title, body: "", capabilities: [] };
+      group.categories.push(category);
+      capability = undefined;
+    } else if (heading.level === 4 && group) {
+      capability = { id: heading.id, title: heading.title, body: "" };
+      if (category) category.capabilities.push(capability);
+      else group.capabilities.push(capability);
+    }
+  });
+  flush();
+  return result;
+}
+
+function MarkdownFragment({ content }: { content: string }) {
+  if (!content) return null;
+  return <div dangerouslySetInnerHTML={{ __html: marked.parse(content, { gfm: true, breaks: true }) as string }} />;
+}
+
+function InternalProgressReport({ section }: { section: Section }) {
+  const internal = useMemo(() => parseInternalProgress(section), [section]);
+  const renderCapability = (item: InternalCapability) => (
+    <details className="internal-capability-card" id={item.id} key={item.id}>
+      <summary>
+        <span>{item.title}</span>
+        <small>存量材料 · 待内部确认</small>
+      </summary>
+      <div className="internal-capability-body">
+        <MarkdownFragment content={item.body} />
+      </div>
+    </details>
+  );
+
+  return (
+    <div className="markdown-body internal-progress-report">
+      <MarkdownFragment content={internal.preamble} />
+      {internal.groups.map((group) => (
+        <section className="internal-progress-group" key={group.id}>
+          <h2 id={group.id} tabIndex={-1}>{group.title}</h2>
+          <MarkdownFragment content={group.body} />
+          {group.capabilities.length > 0 && (
+            <div className="internal-capability-grid">{group.capabilities.map(renderCapability)}</div>
+          )}
+          {group.categories.map((item) => (
+            <section className="internal-category" key={item.id}>
+              <div className="internal-category-heading">
+                <h3 id={item.id} tabIndex={-1}>{item.title}</h3>
+                <span>{item.capabilities.length} 项能力</span>
+              </div>
+              <MarkdownFragment content={item.body} />
+              <div className="internal-capability-grid">{item.capabilities.map(renderCapability)}</div>
+            </section>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function SectionBody({ section }: { section: Section }) {
+  if (section.title === "公司内部进展") return <InternalProgressReport section={section} />;
+  return (
+    <div
+      className="markdown-body"
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(section) }}
+    />
+  );
+}
+
 export function TrendExplorer() {
   const initialSectionId = typeof window === "undefined"
     ? undefined
     : window.location.hash.replace("#", "");
   const initialSection = report.sections.find(
     (section) => section.id === initialSectionId
-      || section.subsections.some((subsection) => subsection.id === initialSectionId),
+      || section.contentHeadings.some((contentHeading) => contentHeading.id === initialSectionId),
   );
   const [activeId, setActiveId] = useState(
     initialSection
@@ -139,19 +245,53 @@ export function TrendExplorer() {
     return () => observer.disconnect();
   }, [readingMode]);
 
+  useEffect(() => {
+    const reportRoot = document.getElementById("full-report");
+    const handleMarkdownLink = (event: MouseEvent) => {
+      const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#"]');
+      const detailId = anchor?.getAttribute("href")?.slice(1);
+      if (!detailId) return;
+      const section = report.sections.find((candidate) => (
+        candidate.contentHeadings.some((heading) => heading.id === detailId)
+      ));
+      if (!section) return;
+      event.preventDefault();
+      window.history.replaceState(null, "", `#${detailId}`);
+      if (readingMode === "all") {
+        const target = document.getElementById(detailId);
+        if (target instanceof HTMLDetailsElement) target.open = true;
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      setActiveId(section.id);
+      setReadingMode("single");
+      setQuery("");
+      setSearchScope("all");
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const target = document.getElementById(detailId);
+          if (target instanceof HTMLDetailsElement) target.open = true;
+          target?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+    };
+    reportRoot?.addEventListener("click", handleMarkdownLink);
+    return () => reportRoot?.removeEventListener("click", handleMarkdownLink);
+  }, [readingMode]);
+
   const searchIndex = useMemo(() => report.sections.flatMap((section) => {
-    let currentSubsection: Subsection | undefined;
+    let currentHeading: ContentHeading | undefined;
     let headingIndex = 0;
     return section.body.split("\n").flatMap((rawLine) => {
-      const headingMatch = rawLine.match(/^(#{2,3})\s+(.+)$/);
+      const headingMatch = rawLine.match(/^(#{2,4})\s+(.+?)(?:\s+\{#[a-z0-9][a-z0-9-]*\})?\s*$/);
       if (headingMatch) {
-        currentSubsection = section.subsections[headingIndex];
+        currentHeading = section.contentHeadings[headingIndex];
         headingIndex += 1;
         return [];
       }
       const line = cleanMarkdownLine(rawLine);
       if (line.length < 8 || /^-+$/.test(line) || line.startsWith("http")) return [];
-      return [{ section, subsection: currentSubsection, line, searchable: line.toLowerCase() }];
+      return [{ section, contentHeading: currentHeading, line, searchable: line.toLowerCase() }];
     });
   }), []);
 
@@ -227,18 +367,24 @@ export function TrendExplorer() {
     document.getElementById("report-explorer")?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const chooseSubsection = (section: Section, subsection: Subsection) => {
+  const chooseContentHeading = (section: Section, contentHeading: ContentHeading) => {
     setActiveId(section.id);
     setReadingMode("single");
     setQuery("");
     setSearchScope("all");
-    window.history.replaceState(null, "", `#${subsection.id}`);
-    window.requestAnimationFrame(() => {
+    window.history.replaceState(null, "", `#${contentHeading.id}`);
       window.requestAnimationFrame(() => {
-        document.getElementById(subsection.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.requestAnimationFrame(() => {
+          const target = document.getElementById(contentHeading.id);
+          if (target instanceof HTMLDetailsElement) target.open = true;
+          target?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
   };
+
+  const chooseSubsection = (section: Section, subsection: Subsection) => (
+    chooseContentHeading(section, subsection)
+  );
 
   const showAllSections = () => {
     setReadingMode("all");
@@ -256,11 +402,20 @@ export function TrendExplorer() {
     });
   };
 
-  const findHighlightSection = (event: string) => (
-    report.sections.find(
-      (section) => section.title !== "本期重点摘要" && section.body.includes(event),
-    ) ?? report.sections.find((section) => section.title === "本期重点摘要") ?? report.sections[0]
-  );
+  const findHighlightTarget = (event: string, detailId?: string) => {
+    const preciseSection = detailId
+      ? report.sections.find((section) => section.contentHeadings.some((heading) => heading.id === detailId))
+      : undefined;
+    const section = preciseSection ?? report.sections.find(
+      (candidate) => candidate.title !== "本期重点摘要" && candidate.body.includes(event),
+    ) ?? report.sections.find((candidate) => candidate.title === "本期重点摘要") ?? report.sections[0];
+    return {
+      section,
+      contentHeading: detailId
+        ? section.contentHeadings.find((heading) => heading.id === detailId)
+        : undefined,
+    };
+  };
 
   const overviewSection = report.sections.find((section) => section.title === "总览") ?? report.sections[0];
 
@@ -367,13 +522,13 @@ export function TrendExplorer() {
                     {group.items.map((result, index) => (
                       <button
                         className="search-result"
-                        key={`${result.section.id}-${result.subsection?.id ?? "root"}-${index}`}
-                        onClick={() => result.subsection
-                          ? chooseSubsection(result.section, result.subsection)
+                        key={`${result.section.id}-${result.contentHeading?.id ?? "root"}-${index}`}
+                        onClick={() => result.contentHeading
+                          ? chooseContentHeading(result.section, result.contentHeading)
                           : chooseSection(result.section)}
                         type="button"
                       >
-                        {result.subsection && <strong>{result.subsection.title}</strong>}
+                        {result.contentHeading && <strong>{result.contentHeading.title}</strong>}
                         <span>{result.line.slice(0, 170)}{result.line.length > 170 ? "…" : ""}</span>
                       </button>
                     ))}
@@ -430,7 +585,7 @@ export function TrendExplorer() {
             {filteredHighlights.map((item) => {
               const itemKey = `${item.event}-${item.date}`;
               const isExpanded = expandedHighlight === itemKey;
-              const targetSection = findHighlightSection(item.event);
+              const target = findHighlightTarget(item.event, item.detailId);
               return (
               <article className={`highlight-card ${isExpanded ? "expanded" : ""}`} key={itemKey}>
                 <div className="highlight-meta"><span>{item.type}</span><time>{item.date}</time></div>
@@ -452,8 +607,10 @@ export function TrendExplorer() {
                 {isExpanded && (
                   <div className="highlight-detail">
                     <p><strong>主要来源</strong>{item.source}</p>
-                    <button type="button" onClick={() => chooseSection(targetSection)}>
-                      在“{targetSection.title}”中查看 <span aria-hidden="true">→</span>
+                    <button type="button" onClick={() => target.contentHeading
+                      ? chooseContentHeading(target.section, target.contentHeading)
+                      : chooseSection(target.section)}>
+                      {target.contentHeading ? "跳转到详细分析" : `在“${target.section.title}”中查看`} <span aria-hidden="true">→</span>
                     </button>
                   </div>
                 )}
@@ -575,10 +732,7 @@ export function TrendExplorer() {
               <div className="content-panel">
                 <article className="article-card">
                   <h2>{active.numeral}、{active.title}</h2>
-                  <div
-                    className="markdown-body"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(active) }}
-                  />
+                  <SectionBody section={active} />
                 </article>
                 {recommendedQuestions.length > 0 && (
                   <aside className="related-questions" aria-labelledby="related-questions-title">
@@ -608,10 +762,7 @@ export function TrendExplorer() {
                         <p>{getSectionSummary(section)}</p>
                       </div>
                     </div>
-                    <div
-                      className="markdown-body"
-                      dangerouslySetInnerHTML={{ __html: renderMarkdown(section) }}
-                    />
+                    <SectionBody section={section} />
                   </article>
                 ))}
                 <button className="collapse-all-button" type="button" onClick={showSingleSection}>

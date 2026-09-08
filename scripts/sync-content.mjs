@@ -23,18 +23,29 @@ const sections = headings.map((match, index) => {
     match.index + match[0].length,
     headings[index + 1]?.index ?? raw.length,
   ).trim();
-  const subsectionPattern = /^(#{2,3})\s+(.+)$/gm;
-  const subsections = [...body.matchAll(subsectionPattern)].map((subsection, subIndex) => ({
-    id: `${id}-sub-${subIndex + 1}`,
-    title: subsection[2].trim(),
-    level: subsection[1].length,
-  }));
+  const contentHeadingPattern = /^(#{2,4})\s+(.+?)(?:\s+\{#([a-z0-9][a-z0-9-]*)\})?\s*$/gm;
+  let subsectionIndex = 0;
+  let detailIndex = 0;
+  const contentHeadings = [...body.matchAll(contentHeadingPattern)].map((contentHeading) => {
+    const level = contentHeading[1].length;
+    if (level <= 3) subsectionIndex += 1;
+    else detailIndex += 1;
+    return {
+      id: contentHeading[3] ?? (level <= 3
+        ? `${id}-sub-${subsectionIndex}`
+        : `${id}-detail-${detailIndex}`),
+      title: contentHeading[2].trim(),
+      level,
+    };
+  });
+  const subsections = contentHeadings.filter((contentHeading) => contentHeading.level <= 3);
   return {
     id,
     numeral: match[1],
     title: match[2].trim(),
     body,
     subsections,
+    contentHeadings,
   };
 });
 
@@ -58,6 +69,7 @@ for (const line of summaryBody.split("\n")) {
   if (!line.startsWith("|") || /^\|[-|\s]+\|$/.test(line) || line.includes("| 事件 |")) continue;
   const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
   if (cells.length >= 6) {
+    const detailId = cells[6]?.match(/\(#([a-z0-9][a-z0-9-]*)\)/)?.[1];
     highlights.push({
       event: cells[0],
       type: cells[1],
@@ -65,7 +77,20 @@ for (const line of summaryBody.split("\n")) {
       impact: cells[3],
       source: cells[4],
       date: cells[5],
+      detailId,
     });
+  }
+}
+
+const contentHeadingIds = new Set(
+  sections.flatMap((section) => section.contentHeadings.map((contentHeading) => contentHeading.id)),
+);
+for (const highlight of highlights) {
+  if (!highlight.detailId) {
+    throw new Error(`Highlight “${highlight.event}” is missing a detailed-analysis anchor.`);
+  }
+  if (!contentHeadingIds.has(highlight.detailId)) {
+    throw new Error(`Highlight “${highlight.event}” points to missing anchor #${highlight.detailId}.`);
   }
 }
 

@@ -27,12 +27,18 @@ test("the Markdown source keeps the required report contract", async () => {
 
   assert.match(
     markdown,
-    /^\| 事件 \| 类型 \| 关键词 \| 一句话影响判断 \| 来源 \| 发布时间 \|$/m,
+    /^\| 事件 \| 类型 \| 关键词 \| 一句话影响判断 \| 来源 \| 发布时间 \| 详细分析 \|$/m,
   );
+
+  assert.doesNotMatch(markdown, /暂时无法在i讯飞文档外展示此内容|\[if !supportLists\]|\[endif\]|mso-/i);
+  assert.match(markdown, /^#### .+ \{#[a-z0-9][a-z0-9-]*\}$/m);
 
   const periodHeadings = markdown.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
   assert.ok(periodHeadings.length >= 1, "at least one normalized period heading is required");
   assert.match(markdown, /^八、公司内部进展[\s\S]*待内部确认/m);
+  assert.match(markdown, /^八、公司内部进展[\s\S]*^\*\*能力总览\*\*$/m);
+  assert.match(markdown, /^八、公司内部进展[\s\S]*^### 语音合成（TTS）$/m);
+  assert.match(markdown, /^八、公司内部进展[\s\S]*^#### 超拟人合成$/m);
 });
 
 test("generated and build outputs remain governed artifacts", async () => {

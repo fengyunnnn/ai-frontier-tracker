@@ -1032,6 +1032,122 @@ a {
   font-size: 16px;
 }
 
+.internal-progress-report {
+  overflow: visible;
+}
+
+.internal-progress-group + .internal-progress-group {
+  margin-top: 44px;
+}
+
+.internal-category {
+  margin-top: 34px;
+  padding-top: 4px;
+}
+
+.internal-category-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.internal-category-heading h3 {
+  margin: 0;
+  padding: 0 0 10px;
+  border-bottom: 2px solid var(--teal);
+}
+
+.internal-category-heading span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.internal-capability-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.internal-capability-card {
+  scroll-margin-top: 26px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 8px 24px rgba(25,48,43,.04);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.internal-capability-card[open] {
+  border-color: rgba(13,98,88,.28);
+  box-shadow: 0 14px 34px rgba(25,48,43,.08);
+}
+
+.internal-capability-card summary {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding: 16px 48px 16px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.internal-capability-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.internal-capability-card summary::after {
+  content: "+";
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--teal);
+  background: var(--teal-soft);
+  font-weight: 700;
+  line-height: 24px;
+  text-align: center;
+  transform: translateY(-50%);
+}
+
+.internal-capability-card[open] summary::after {
+  content: "−";
+}
+
+.internal-capability-card summary > span {
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.internal-capability-card summary small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .04em;
+}
+
+.internal-capability-body {
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--line);
+  color: #40504b;
+  font-size: 14px;
+  line-height: 1.78;
+}
+
+.internal-capability-body > div > :first-child {
+  margin-top: 16px;
+}
+
+.internal-capability-body > div > :last-child {
+  margin-bottom: 0;
+}
+
 .markdown-body blockquote {
   margin: 20px 0 28px;
   padding: 16px 18px;
