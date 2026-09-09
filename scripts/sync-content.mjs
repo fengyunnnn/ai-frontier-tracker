@@ -16,6 +16,91 @@ const source = process.env.SOURCE_MARKDOWN
 const raw = (await readFile(source, "utf8")).replace(/\r\n/g, "\n");
 const sourceStat = await stat(source);
 const headingPattern = /^(一|二|三|四|五|六|七|八)、([^\n]+)$/gm;
+const contentHeadingPattern = /^(#{2,4})\s+(.+?)(?:\s+\{#([a-z0-9][a-z0-9-]*)\})?\s*$/gm;
+
+const intelligenceTaxonomy = {
+  terminals: [
+    ["电视大屏", /电视|大屏|AI TV|Fire TV|webOS/i],
+    ["机顶盒", /机顶盒|STB|set-top/i],
+    ["家庭中屏", /中屏|智能屏/i],
+    ["语音遥控器", /遥控器|remote control/i],
+    ["家庭中枢", /家庭中枢|AI Home|SmartThings|ThinQ|智能家居/i],
+    ["泛智能终端", /机器人|眼镜|可穿戴|智能硬件/i],
+    ["PC/边缘设备", /PC|RTX|Jetson|边缘设备|局域网/i],
+    ["平台/API", /API|SDK|平台|工作台|开发者/i],
+  ],
+  capabilities: [
+    ["ASR", /ASR|语音识别|转写/i],
+    ["TTS", /TTS|语音合成|音色/i],
+    ["全双工", /全双工|插话|打断|turn-taking/i],
+    ["唤醒与声学", /唤醒|误唤醒|AEC|VAD|降噪|远场|声学/i],
+    ["内容搜索与播放", /搜片|内容搜索|搜索即播|播放闭环|EPG|媒资|内容发现/i],
+    ["任务编排", /任务编排|工具调用|Agent|智能体|设备编排/i],
+    ["端侧与端云", /端侧|端云|NPU|芯片|本地部署|边缘/i],
+    ["多模态", /多模态|视觉|视频理解|屏幕上下文/i],
+    ["声纹与身份", /声纹|Voice ID|身份|家庭成员/i],
+    ["平台工程", /平台化|配置化|规模交付|多省|SDK|API/i],
+    ["安全合规", /安全|合规|隐私|未成年人|权限/i],
+    ["个性化与记忆", /个性化|记忆|偏好|主动推荐/i],
+  ],
+  competitors: [
+    ["OpenAI", /OpenAI|GPT-/i],
+    ["Google", /Google|Gemini/i],
+    ["Microsoft", /Microsoft|微软|VibeVoice/i],
+    ["NVIDIA", /NVIDIA|Nemotron|PAIR/i],
+    ["Amazon/Alexa", /Amazon|Alexa|Fire TV/i],
+    ["Samsung", /Samsung|三星/i],
+    ["LG", /LG|ThinQ|webOS/i],
+    ["酷开", /酷开|Coocaa|AIOS/i],
+    ["中兴", /中兴|ZTE/i],
+    ["阿里/Qwen", /阿里|Qwen|千问|CosyVoice/i],
+    ["腾讯", /腾讯/i],
+    ["字节/豆包", /字节|豆包|Seed/i],
+    ["Deepgram", /Deepgram/i],
+    ["LiveKit", /LiveKit/i],
+    ["VUI Labs", /VUI Labs|Luna-TTS/i],
+    ["海思", /海思|HiSilicon/i],
+    ["晶晨", /晶晨|Amlogic/i],
+    ["百视通", /百视通|BesTV/i],
+    ["爱上传媒", /爱上传媒|爱上电视/i],
+  ],
+};
+
+const inferValues = (text, rules) => rules
+  .filter(([, pattern]) => pattern.test(text))
+  .map(([label]) => label);
+
+const parseIntelligenceMetadata = (body) => {
+  const metadataLine = body.match(/^情报维度：(.+)$/m)?.[1];
+  const metadata = {};
+  if (metadataLine) {
+    for (const group of metadataLine.split(/[；;]/)) {
+      const [rawKey, rawValues] = group.split(/[=：:]/, 2).map((value) => value?.trim());
+      if (!rawKey || !rawValues) continue;
+      metadata[rawKey] = rawValues.split(/[、，,]/).map((value) => value.trim()).filter(Boolean);
+    }
+  }
+  return {
+    metadata,
+    body: body.replace(/^情报维度：.+\n?/m, "").trim(),
+  };
+};
+
+const summarizeDetail = (body) => {
+  const line = body.split("\n")
+    .map((item) => item
+      .replace(/^\s*\d+[.)]\s*/, "")
+      .replace(/^[-*>\s]+/, "")
+      .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+      .replace(/[*_`|]/g, "")
+      .trim())
+    .find((item) => item.length >= 24
+      && !/^(判断状态|标签|发布时间|核验状态|来源)[：:]/.test(item)
+      && !item.startsWith("http"));
+  if (!line) return "进入条目查看事实、判断边界与后续动作。";
+  return `${line.slice(0, 110)}${line.length > 110 ? "…" : ""}`;
+};
+
 const headings = [...raw.matchAll(headingPattern)];
 const sections = headings.map((match, index) => {
   const id = `section-${index + 1}`;
@@ -23,10 +108,10 @@ const sections = headings.map((match, index) => {
     match.index + match[0].length,
     headings[index + 1]?.index ?? raw.length,
   ).trim();
-  const contentHeadingPattern = /^(#{2,4})\s+(.+?)(?:\s+\{#([a-z0-9][a-z0-9-]*)\})?\s*$/gm;
   let subsectionIndex = 0;
   let detailIndex = 0;
-  const contentHeadings = [...body.matchAll(contentHeadingPattern)].map((contentHeading) => {
+  const contentHeadingMatches = [...body.matchAll(contentHeadingPattern)];
+  const contentHeadings = contentHeadingMatches.map((contentHeading) => {
     const level = contentHeading[1].length;
     if (level <= 3) subsectionIndex += 1;
     else detailIndex += 1;
@@ -46,8 +131,43 @@ const sections = headings.map((match, index) => {
     body,
     subsections,
     contentHeadings,
+    intelligenceItems: [],
   };
 });
+
+const intelligenceSectionTitles = new Set(["行业动态", "产品动态", "技术革新", "竞品与标杆公司动态"]);
+for (const section of sections) {
+  if (!intelligenceSectionTitles.has(section.title)) continue;
+  const matches = [...section.body.matchAll(contentHeadingPattern)];
+  let period = "持续观察";
+  matches.forEach((match, index) => {
+    const heading = section.contentHeadings[index];
+    if (heading.level <= 3) {
+      period = heading.title;
+      return;
+    }
+    const detailBody = section.body.slice(
+      match.index + match[0].length,
+      matches[index + 1]?.index ?? section.body.length,
+    ).trim();
+    const parsed = parseIntelligenceMetadata(detailBody);
+    const searchable = `${heading.title}\n${parsed.body}`;
+    section.intelligenceItems.push({
+      id: heading.id,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      period,
+      title: heading.title,
+      body: parsed.body,
+      summary: summarizeDetail(parsed.body),
+      terminals: parsed.metadata["终端"] ?? inferValues(searchable, intelligenceTaxonomy.terminals),
+      capabilities: parsed.metadata["能力"] ?? inferValues(searchable, intelligenceTaxonomy.capabilities),
+      competitors: parsed.metadata["竞对"] ?? inferValues(searchable, intelligenceTaxonomy.competitors),
+      attributions: parsed.metadata["归因"] ?? ["待归因"],
+      level: parsed.metadata["层级"]?.[0] ?? "待分层",
+    });
+  });
+}
 
 const overviewBody = sections.find((section) => section.title === "总览")?.body ?? "";
 const overviewLines = overviewBody.split("\n").map((line) => line.trim()).filter(Boolean);
@@ -105,11 +225,13 @@ const report = {
   directions,
   highlights,
   sections,
+  intelligenceItems: sections.flatMap((section) => section.intelligenceItems),
   metrics: {
     directions: directions.length,
     highlights: highlights.length,
     sections: sections.length,
     sources: officialLinks.size,
+    intelligence: sections.reduce((total, section) => total + section.intelligenceItems.length, 0),
   },
 };
 

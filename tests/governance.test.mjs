@@ -32,6 +32,14 @@ test("the Markdown source keeps the required report contract", async () => {
 
   assert.doesNotMatch(markdown, /暂时无法在i讯飞文档外展示此内容|\[if !supportLists\]|\[endif\]|mso-/i);
   assert.match(markdown, /^#### .+ \{#[a-z0-9][a-z0-9-]*\}$/m);
+  assert.match(
+    markdown,
+    /^情报维度：终端=.+；能力=.+；(?:竞对=.+；)?归因=(?:能力问题|体验问题|资源\/商务问题|交付问题)(?:、(?:能力问题|体验问题|资源\/商务问题|交付问题))*；层级=L[123]-(?:生存层|竞争层|未来层)$/m,
+  );
+  assert.match(markdown, /L1-生存层/);
+  assert.match(markdown, /L2-竞争层/);
+  assert.match(markdown, /L3-未来层/);
+  assert.match(markdown, /能力问题[\s\S]*体验问题[\s\S]*资源\/商务问题[\s\S]*交付问题/);
 
   const periodHeadings = markdown.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
   assert.ok(periodHeadings.length >= 1, "at least one normalized period heading is required");
@@ -74,4 +82,7 @@ test("governance documents describe the same source-of-truth boundary", async ()
   assert.match(schema, /固定一级章节/);
   assert.match(schema, /YYYY-MM-DD/);
   assert.match(schema, /待内部确认/);
+  assert.match(schema, /情报维度/);
+  assert.match(schema, /L1-生存层/);
+  assert.match(schema, /资源\/商务问题/);
 });

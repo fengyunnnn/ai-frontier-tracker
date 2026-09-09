@@ -7,6 +7,7 @@ import { report } from "./content.generated";
 type Section = (typeof report.sections)[number];
 type Subsection = Section["subsections"][number];
 type ContentHeading = Section["contentHeadings"][number];
+type IntelligenceItem = (typeof report.intelligenceItems)[number];
 type ReadingMode = "single" | "all";
 
 const searchScopes = [
@@ -121,6 +122,62 @@ function MarkdownFragment({ content }: { content: string }) {
   return <div dangerouslySetInnerHTML={{ __html: marked.parse(content, { gfm: true, breaks: true }) as string }} />;
 }
 
+function IntelligenceReport({ section }: { section: Section }) {
+  const groups = useMemo(() => {
+    const grouped = new Map<string, IntelligenceItem[]>();
+    section.intelligenceItems.forEach((item) => {
+      const items = grouped.get(item.period) ?? [];
+      items.push(item);
+      grouped.set(item.period, items);
+    });
+    return [...grouped.entries()];
+  }, [section]);
+  const preamble = section.body.split(/^##\s+/m)[0]?.trim();
+
+  return (
+    <div className="markdown-body intelligence-report">
+      <MarkdownFragment content={preamble} />
+      {groups.map(([period, items]) => (
+        <section className="intelligence-period" key={period}>
+          <div className="intelligence-period-heading">
+            <h2 id={section.contentHeadings.find((heading) => heading.title === period)?.id} tabIndex={-1}>{period}</h2>
+            <span>{items.length} 条情报</span>
+          </div>
+          <div className="intelligence-card-stack">
+            {items.map((item) => (
+              <details className="intelligence-card" id={item.id} key={item.id}>
+                <summary>
+                  <div className="intelligence-summary-copy">
+                    <h3>{item.title}</h3>
+                    <p>{item.summary}</p>
+                  </div>
+                  <div className="intelligence-summary-side">
+                    <div className="facet-tag-row" aria-label="情报维度">
+                      <span className={`facet-chip level-chip level-${item.level.slice(0, 2).toLowerCase()}`}>{item.level}</span>
+                      {item.attributions.slice(0, 2).map((value) => <span className="facet-chip attribution-chip" key={value}>{value}</span>)}
+                      {item.terminals.slice(0, 1).map((value) => <span className="facet-chip" key={value}>{value}</span>)}
+                    </div>
+                    <span className="intelligence-expand">展开分析 <b aria-hidden="true">＋</b></span>
+                  </div>
+                </summary>
+                <div className="intelligence-body">
+                  <div className="intelligence-dimensions">
+                    <span><strong>终端</strong>{item.terminals.join("、") || "未标注"}</span>
+                    <span><strong>能力</strong>{item.capabilities.join("、") || "未标注"}</span>
+                    <span><strong>竞对</strong>{item.competitors.join("、") || "非竞对项"}</span>
+                    <span><strong>归因</strong>{item.attributions.join("、")}</span>
+                  </div>
+                  <MarkdownFragment content={item.body} />
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function InternalProgressReport({ section }: { section: Section }) {
   const internal = useMemo(() => parseInternalProgress(section), [section]);
   const renderCapability = (item: InternalCapability) => (
@@ -163,6 +220,9 @@ function InternalProgressReport({ section }: { section: Section }) {
 
 function SectionBody({ section }: { section: Section }) {
   if (section.title === "公司内部进展") return <InternalProgressReport section={section} />;
+  if (["行业动态", "产品动态", "技术革新", "竞品与标杆公司动态"].includes(section.title)) {
+    return <IntelligenceReport section={section} />;
+  }
   return (
     <div
       className="markdown-body"
@@ -188,6 +248,11 @@ export function TrendExplorer() {
   const [searchScope, setSearchScope] = useState<SearchScopeId>("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [expandedHighlight, setExpandedHighlight] = useState<string | null>(null);
+  const [terminalFilter, setTerminalFilter] = useState("all");
+  const [capabilityFilter, setCapabilityFilter] = useState("all");
+  const [competitorFilter, setCompetitorFilter] = useState("all");
+  const [attributionFilter, setAttributionFilter] = useState("all");
+  const [levelFilter, setLevelFilter] = useState("all");
   const [readingMode, setReadingMode] = useState<ReadingMode>("single");
   const [readingProgress, setReadingProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -358,6 +423,38 @@ export function TrendExplorer() {
     [dateFilter],
   );
 
+  const facetOptions = useMemo(() => {
+    const unique = (values: readonly (readonly string[])[]) => [...new Set(values.flat())].sort(
+      (left, right) => left.localeCompare(right, "zh-CN"),
+    );
+    return {
+      terminals: unique(report.intelligenceItems.map((item) => item.terminals)),
+      capabilities: unique(report.intelligenceItems.map((item) => item.capabilities)),
+      competitors: unique(report.intelligenceItems.map((item) => item.competitors)),
+      attributions: unique(report.intelligenceItems.map((item) => item.attributions)),
+      levels: [...new Set(report.intelligenceItems.map((item) => item.level))].sort(),
+    };
+  }, []);
+
+  const filteredIntelligence = useMemo(() => report.intelligenceItems.filter((item) => (
+    (terminalFilter === "all" || item.terminals.includes(terminalFilter as never))
+    && (capabilityFilter === "all" || item.capabilities.includes(capabilityFilter as never))
+    && (competitorFilter === "all" || item.competitors.includes(competitorFilter as never))
+    && (attributionFilter === "all" || item.attributions.includes(attributionFilter as never))
+    && (levelFilter === "all" || item.level === levelFilter)
+  )), [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter]);
+
+  const facetsAreActive = [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter]
+    .some((value) => value !== "all");
+
+  const resetFacets = () => {
+    setTerminalFilter("all");
+    setCapabilityFilter("all");
+    setCompetitorFilter("all");
+    setAttributionFilter("all");
+    setLevelFilter("all");
+  };
+
   const chooseSection = (section: Section) => {
     setActiveId(section.id);
     setReadingMode("single");
@@ -380,6 +477,12 @@ export function TrendExplorer() {
           target?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
+  };
+
+  const chooseIntelligenceItem = (item: IntelligenceItem) => {
+    const section = report.sections.find((candidate) => candidate.id === item.sectionId);
+    const heading = section?.contentHeadings.find((candidate) => candidate.id === item.id);
+    if (section && heading) chooseContentHeading(section, heading);
   };
 
   const chooseSubsection = (section: Section, subsection: Subsection) => (
@@ -539,11 +642,82 @@ export function TrendExplorer() {
           )}
         </section>
 
+        <section className="intelligence-hub" aria-labelledby="intelligence-filter-title">
+          <div className="intelligence-hub-heading">
+            <div>
+              <p className="section-kicker">COMPETITIVE INTELLIGENCE</p>
+              <h2 id="intelligence-filter-title">多维情报检索</h2>
+              <p>用结构化维度定位同一问题：在哪类终端、涉及什么能力、面对谁、该由谁解决、处于哪一竞争层。</p>
+            </div>
+            <div className="intelligence-count">
+              <strong>{filteredIntelligence.length}</strong>
+              <span>/ {report.metrics.intelligence} 条情报</span>
+            </div>
+          </div>
+          <div className="intelligence-filters">
+            <label>
+              <span>终端类型</span>
+              <select value={terminalFilter} onChange={(event) => setTerminalFilter(event.target.value)}>
+                <option value="all">全部终端</option>
+                {facetOptions.terminals.map((value) => <option value={value} key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>能力域</span>
+              <select value={capabilityFilter} onChange={(event) => setCapabilityFilter(event.target.value)}>
+                <option value="all">全部能力</option>
+                {facetOptions.capabilities.map((value) => <option value={value} key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>竞对</span>
+              <select value={competitorFilter} onChange={(event) => setCompetitorFilter(event.target.value)}>
+                <option value="all">全部竞对</option>
+                {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>问题归因</span>
+              <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
+                <option value="all">全部归因</option>
+                {facetOptions.attributions.map((value) => <option value={value} key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>竞争层级</span>
+              <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+                <option value="all">全部层级</option>
+                {facetOptions.levels.map((value) => <option value={value} key={value}>{value}</option>)}
+              </select>
+            </label>
+            <button className="reset-facets" type="button" onClick={resetFacets} disabled={!facetsAreActive}>重置筛选</button>
+          </div>
+          <div className="intelligence-result-grid" aria-live="polite">
+            {filteredIntelligence.slice(0, facetsAreActive ? 18 : 8).map((item) => (
+              <button className="intelligence-result-card" type="button" key={item.id} onClick={() => chooseIntelligenceItem(item)}>
+                <div>
+                  <span>{item.sectionTitle}</span>
+                  <b>{item.level}</b>
+                </div>
+                <strong>{item.title}</strong>
+                <p>{item.summary}</p>
+                <small>{[...item.terminals.slice(0, 1), ...item.capabilities.slice(0, 1), ...item.attributions.slice(0, 1)].join(" · ")}</small>
+              </button>
+            ))}
+            {filteredIntelligence.length === 0 && (
+              <div className="intelligence-empty">当前组合没有匹配条目。可减少一个筛选条件，或把缺失维度列入下一轮输入任务。</div>
+            )}
+          </div>
+          {filteredIntelligence.length > (facetsAreActive ? 18 : 8) && (
+            <p className="intelligence-overflow">当前先展示前 {facetsAreActive ? 18 : 8} 条；继续收窄维度可定位具体情报。</p>
+          )}
+        </section>
+
         <section id="core-signals">
           <p className="section-kicker">CORE SIGNALS</p>
           <div className="section-heading-row">
-            <h2 className="section-title">当前四条变化主线</h2>
-            <span className="section-note">累计判断框架</span>
+            <h2 className="section-title">竞争判断分层</h2>
+            <span className="section-note">准入 → 竞争 → 未来 · 横向归因</span>
           </div>
           <div className="direction-grid">
             {report.directions.map((direction) => (
