@@ -53,20 +53,6 @@ function cleanMarkdownLine(line: string) {
     .trim();
 }
 
-function getSectionSummary(section: Section) {
-  const line = section.body
-    .split("\n")
-    .map(cleanMarkdownLine)
-    .find((item) => item.length >= 18 && !item.startsWith("http"));
-  return line ? `${line.slice(0, 96)}${line.length > 96 ? "…" : ""}` : "进入本章查看完整内容与证据。";
-}
-
-function getSectionKeywords(section: Section) {
-  const text = `${section.title}\n${section.body}`;
-  const candidates = ["全双工", "ASR", "TTS", "多模态", "家庭场景", "运营商", "产品", "技术", "竞品", "内部进展", "待确认"];
-  return candidates.filter((keyword) => text.toLowerCase().includes(keyword.toLowerCase())).slice(0, 3);
-}
-
 type InternalCapability = { id: string; title: string; body: string };
 type InternalCategory = { id: string; title: string; body: string; capabilities: InternalCapability[] };
 type InternalGroup = { id: string; title: string; body: string; categories: InternalCategory[]; capabilities: InternalCapability[] };
@@ -246,8 +232,6 @@ export function TrendExplorer() {
   );
   const [query, setQuery] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScopeId>("all");
-  const [dateFilter, setDateFilter] = useState("all");
-  const [expandedHighlight, setExpandedHighlight] = useState<string | null>(null);
   const [terminalFilter, setTerminalFilter] = useState("all");
   const [capabilityFilter, setCapabilityFilter] = useState("all");
   const [competitorFilter, setCompetitorFilter] = useState("all");
@@ -330,8 +314,6 @@ export function TrendExplorer() {
       }
       setActiveId(section.id);
       setReadingMode("single");
-      setQuery("");
-      setSearchScope("all");
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
           const target = document.getElementById(detailId);
@@ -383,17 +365,6 @@ export function TrendExplorer() {
     return [...groups.values()];
   }, [results]);
 
-  const sectionCards = useMemo(() => {
-    const maximumLength = Math.max(...report.sections.map((section) => section.body.length), 1);
-    return report.sections.map((section) => ({
-      section,
-      summary: getSectionSummary(section),
-      keywords: getSectionKeywords(section),
-      readingSize: Math.max(1, Math.round(section.body.length / 1000)),
-      density: Math.max(8, Math.round((section.body.length / maximumLength) * 100)),
-    }));
-  }, []);
-
   const recommendedQuestions = useMemo(() => active.body
     .split("\n")
     .map(cleanMarkdownLine)
@@ -401,27 +372,17 @@ export function TrendExplorer() {
     .filter((line, index, lines) => line.length >= 12 && lines.indexOf(line) === index)
     .slice(0, 4), [active]);
 
-  const monthOptions = useMemo(() => {
-    const counts = new Map<string, number>();
+  const highlightGroups = useMemo(() => {
+    const groups = new Map<string, Array<(typeof report.highlights)[number]>>();
     report.highlights.forEach((item) => {
-      const month = item.date.slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(month)) counts.set(month, (counts.get(month) ?? 0) + 1);
+      const group = groups.get(item.date) ?? [];
+      group.push(item);
+      groups.set(item.date, group);
     });
-    return [...counts.entries()]
+    return [...groups.entries()]
       .sort(([left], [right]) => right.localeCompare(left))
-      .map(([value, count]) => ({
-        value,
-        count,
-        label: `${value.slice(0, 4)}年${Number(value.slice(5, 7))}月`,
-      }));
+      .map(([date, items]) => ({ date, items }));
   }, []);
-
-  const filteredHighlights = useMemo(
-    () => dateFilter === "all"
-      ? report.highlights
-      : report.highlights.filter((item) => item.date.startsWith(dateFilter)),
-    [dateFilter],
-  );
 
   const facetOptions = useMemo(() => {
     const unique = (values: readonly (readonly string[])[]) => [...new Set(values.flat())].sort(
@@ -458,8 +419,6 @@ export function TrendExplorer() {
   const chooseSection = (section: Section) => {
     setActiveId(section.id);
     setReadingMode("single");
-    setQuery("");
-    setSearchScope("all");
     window.history.replaceState(null, "", `#${section.id}`);
     document.getElementById("report-explorer")?.scrollIntoView({ behavior: "smooth" });
   };
@@ -467,8 +426,6 @@ export function TrendExplorer() {
   const chooseContentHeading = (section: Section, contentHeading: ContentHeading) => {
     setActiveId(section.id);
     setReadingMode("single");
-    setQuery("");
-    setSearchScope("all");
     window.history.replaceState(null, "", `#${contentHeading.id}`);
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
@@ -520,8 +477,6 @@ export function TrendExplorer() {
     };
   };
 
-  const overviewSection = report.sections.find((section) => section.title === "总览") ?? report.sections[0];
-
   return (
     <main className="site-shell">
       <div className="reading-progress" aria-hidden="true">
@@ -549,16 +504,74 @@ export function TrendExplorer() {
           <Metric value={report.metrics.sources} label="文档来源链接" />
         </section>
 
-        <section className="reading-guide" aria-labelledby="reading-guide-title">
-          <div>
-            <p className="section-kicker">READING GUIDE</p>
-            <h2 id="reading-guide-title">本期阅读指南</h2>
-            <p>先看累计判断，把握方向；再看本期重点，识别变化；最后按需进入完整报告核对证据与业务分析。</p>
+        <section id="weekly-highlights">
+          <p className="section-kicker">WEEKLY HIGHLIGHTS</p>
+          <div className="section-heading-row">
+            <div>
+              <h2 className="section-title">本期值得优先关注</h2>
+              <p className="section-description">先扫读影响判断，按需展开来源并定位到完整报告。</p>
+            </div>
           </div>
-          <div className="reading-path" aria-label="推荐阅读顺序">
-            <button type="button" onClick={() => chooseSection(overviewSection)}><span>01</span>累计判断</button>
-            <a href="#weekly-highlights"><span>02</span>本期重点</a>
-            <a href="#full-report"><span>03</span>完整报告</a>
+          <div className="highlight-groups">
+            {highlightGroups.map((group) => (
+              <div className="highlight-date-group" key={group.date}>
+                <div className="highlight-date-heading">
+                  <time dateTime={group.date}>{group.date}</time>
+                  <span>{group.items.length} 条</span>
+                </div>
+                <div className="highlight-grid">
+                  {group.items.map((item) => {
+                    return (
+                    <article className="highlight-card" key={`${item.event}-${item.date}`}>
+                      <div className="highlight-meta">
+                        <span>{item.type}</span>
+                        <span>{item.source}</span>
+                        <time dateTime={item.date}>{item.date}</time>
+                      </div>
+                      <a
+                        className="highlight-link"
+                        href={`#${item.detailId}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          const target = findHighlightTarget(item.event, item.detailId);
+                          if (target.contentHeading) {
+                            chooseContentHeading(target.section, target.contentHeading);
+                          } else {
+                            chooseSection(target.section);
+                          }
+                        }}
+                      >
+                        <h3>{item.event}</h3>
+                        <p className="highlight-impact">{item.impact}</p>
+                        <span className="highlight-cta">查看分析 <span aria-hidden="true">→</span></span>
+                      </a>
+                      <div className="tag-row" aria-label="关键词">
+                        {item.keywords.split(/[、，,]/).slice(0, 2).map((keyword) => (
+                          <span className="tag" key={keyword}>{keyword.trim()}</span>
+                        ))}
+                      </div>
+                    </article>
+                  )})}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="core-signals">
+          <p className="section-kicker">CORE SIGNALS</p>
+          <div className="section-heading-row">
+            <h2 className="section-title">竞争判断分层</h2>
+            <span className="section-note">准入 → 竞争 → 未来 · 横向归因</span>
+          </div>
+          <div className="direction-grid">
+            {report.directions.map((direction) => (
+              <article className="direction-card" key={direction.index}>
+                <span className="direction-index">0{direction.index}</span>
+                <h3>{direction.title}</h3>
+                <p>{direction.detail}</p>
+              </article>
+            ))}
           </div>
         </section>
 
@@ -643,154 +656,80 @@ export function TrendExplorer() {
         </section>
 
         <section className="intelligence-hub" aria-labelledby="intelligence-filter-title">
-          <div className="intelligence-hub-heading">
-            <div>
-              <p className="section-kicker">COMPETITIVE INTELLIGENCE</p>
-              <h2 id="intelligence-filter-title">多维情报检索</h2>
-              <p>用结构化维度定位同一问题：在哪类终端、涉及什么能力、面对谁、该由谁解决、处于哪一竞争层。</p>
+          <details className="intelligence-filter-disclosure">
+            <summary className="intelligence-filter-summary">
+              <span>
+                <span className="section-kicker">COMPETITIVE INTELLIGENCE</span>
+                <strong id="intelligence-filter-title">多维情报筛选</strong>
+              </span>
+              <span className="intelligence-count">
+                <strong>{report.metrics.intelligence}</strong>
+                <span> 条情报</span>
+              </span>
+            </summary>
+            <p className="intelligence-filter-description">用结构化维度定位同一问题：在哪类终端、涉及什么能力、面对谁、该由谁解决、处于哪一竞争层。</p>
+            <div className="intelligence-filters">
+              <label>
+                <span>终端类型</span>
+                <select value={terminalFilter} onChange={(event) => setTerminalFilter(event.target.value)}>
+                  <option value="all">全部终端</option>
+                  {facetOptions.terminals.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>能力域</span>
+                <select value={capabilityFilter} onChange={(event) => setCapabilityFilter(event.target.value)}>
+                  <option value="all">全部能力</option>
+                  {facetOptions.capabilities.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>竞对</span>
+                <select value={competitorFilter} onChange={(event) => setCompetitorFilter(event.target.value)}>
+                  <option value="all">全部竞对</option>
+                  {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>问题归因</span>
+                <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
+                  <option value="all">全部归因</option>
+                  {facetOptions.attributions.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>竞争层级</span>
+                <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+                  <option value="all">全部层级</option>
+                  {facetOptions.levels.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <button className="reset-facets" type="button" onClick={resetFacets} disabled={!facetsAreActive}>重置筛选</button>
             </div>
-            <div className="intelligence-count">
-              <strong>{filteredIntelligence.length}</strong>
-              <span>/ {report.metrics.intelligence} 条情报</span>
-            </div>
-          </div>
-          <div className="intelligence-filters">
-            <label>
-              <span>终端类型</span>
-              <select value={terminalFilter} onChange={(event) => setTerminalFilter(event.target.value)}>
-                <option value="all">全部终端</option>
-                {facetOptions.terminals.map((value) => <option value={value} key={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>能力域</span>
-              <select value={capabilityFilter} onChange={(event) => setCapabilityFilter(event.target.value)}>
-                <option value="all">全部能力</option>
-                {facetOptions.capabilities.map((value) => <option value={value} key={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>竞对</span>
-              <select value={competitorFilter} onChange={(event) => setCompetitorFilter(event.target.value)}>
-                <option value="all">全部竞对</option>
-                {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>问题归因</span>
-              <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
-                <option value="all">全部归因</option>
-                {facetOptions.attributions.map((value) => <option value={value} key={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>
-              <span>竞争层级</span>
-              <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-                <option value="all">全部层级</option>
-                {facetOptions.levels.map((value) => <option value={value} key={value}>{value}</option>)}
-              </select>
-            </label>
-            <button className="reset-facets" type="button" onClick={resetFacets} disabled={!facetsAreActive}>重置筛选</button>
-          </div>
-          <div className="intelligence-result-grid" aria-live="polite">
-            {filteredIntelligence.slice(0, facetsAreActive ? 18 : 8).map((item) => (
-              <button className="intelligence-result-card" type="button" key={item.id} onClick={() => chooseIntelligenceItem(item)}>
-                <div>
-                  <span>{item.sectionTitle}</span>
-                  <b>{item.level}</b>
-                </div>
-                <strong>{item.title}</strong>
-                <p>{item.summary}</p>
-                <small>{[...item.terminals.slice(0, 1), ...item.capabilities.slice(0, 1), ...item.attributions.slice(0, 1)].join(" · ")}</small>
-              </button>
-            ))}
-            {filteredIntelligence.length === 0 && (
-              <div className="intelligence-empty">当前组合没有匹配条目。可减少一个筛选条件，或把缺失维度列入下一轮输入任务。</div>
-            )}
-          </div>
-          {filteredIntelligence.length > (facetsAreActive ? 18 : 8) && (
-            <p className="intelligence-overflow">当前先展示前 {facetsAreActive ? 18 : 8} 条；继续收窄维度可定位具体情报。</p>
-          )}
-        </section>
-
-        <section id="core-signals">
-          <p className="section-kicker">CORE SIGNALS</p>
-          <div className="section-heading-row">
-            <h2 className="section-title">竞争判断分层</h2>
-            <span className="section-note">准入 → 竞争 → 未来 · 横向归因</span>
-          </div>
-          <div className="direction-grid">
-            {report.directions.map((direction) => (
-              <article className="direction-card" key={direction.index}>
-                <span className="direction-index">0{direction.index}</span>
-                <h3>{direction.title}</h3>
-                <p>{direction.detail}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="weekly-highlights">
-          <p className="section-kicker">WEEKLY HIGHLIGHTS</p>
-          <div className="section-heading-row">
-            <div>
-              <h2 className="section-title">本期值得优先关注</h2>
-              <p className="section-description">先扫读影响判断，按需展开来源并定位到完整报告。</p>
-            </div>
-            {monthOptions.length > 1 && (
-              <div className="date-filters" aria-label="按月份筛选重点事件">
-                <button className={dateFilter === "all" ? "active" : ""} type="button" onClick={() => setDateFilter("all")}>
-                  全部 <span>{report.highlights.length}</span>
-                </button>
-                {monthOptions.map((option) => (
-                  <button
-                    className={dateFilter === option.value ? "active" : ""}
-                    key={option.value}
-                    type="button"
-                    onClick={() => setDateFilter(option.value)}
-                  >
-                    {option.label} <span>{option.count}</span>
+          </details>
+          {facetsAreActive && (
+            <>
+              <div className="intelligence-result-grid" aria-live="polite">
+                {filteredIntelligence.slice(0, 18).map((item) => (
+                  <button className="intelligence-result-card" type="button" key={item.id} onClick={() => chooseIntelligenceItem(item)}>
+                    <div>
+                      <span>{item.sectionTitle}</span>
+                      <b>{item.level}</b>
+                    </div>
+                    <strong>{item.title}</strong>
+                    <p>{item.summary}</p>
+                    <small>{[...item.terminals.slice(0, 1), ...item.capabilities.slice(0, 1), ...item.attributions.slice(0, 1)].join(" · ")}</small>
                   </button>
                 ))}
-              </div>
-            )}
-          </div>
-          <div className="highlight-grid">
-            {filteredHighlights.map((item) => {
-              const itemKey = `${item.event}-${item.date}`;
-              const isExpanded = expandedHighlight === itemKey;
-              const target = findHighlightTarget(item.event, item.detailId);
-              return (
-              <article className={`highlight-card ${isExpanded ? "expanded" : ""}`} key={itemKey}>
-                <div className="highlight-meta"><span>{item.type}</span><time>{item.date}</time></div>
-                <h3>{item.event}</h3>
-                <p className="highlight-impact">{item.impact}</p>
-                <div className="tag-row" aria-label="关键词">
-                  {item.keywords.split(/[、，,]/).map((keyword) => (
-                    <span className="tag" key={keyword}>{keyword.trim()}</span>
-                  ))}
-                </div>
-                <button
-                  className="expand-button"
-                  type="button"
-                  aria-expanded={isExpanded}
-                  onClick={() => setExpandedHighlight(isExpanded ? null : itemKey)}
-                >
-                  {isExpanded ? "收起详情" : "查看详情"}<span aria-hidden="true">{isExpanded ? "↑" : "↓"}</span>
-                </button>
-                {isExpanded && (
-                  <div className="highlight-detail">
-                    <p><strong>主要来源</strong>{item.source}</p>
-                    <button type="button" onClick={() => target.contentHeading
-                      ? chooseContentHeading(target.section, target.contentHeading)
-                      : chooseSection(target.section)}>
-                      {target.contentHeading ? "跳转到详细分析" : `在“${target.section.title}”中查看`} <span aria-hidden="true">→</span>
-                    </button>
-                  </div>
+                {filteredIntelligence.length === 0 && (
+                  <div className="intelligence-empty">当前组合没有匹配条目。可减少一个筛选条件，或把缺失维度列入下一轮输入任务。</div>
                 )}
-              </article>
-            )})}
-          </div>
+              </div>
+              {filteredIntelligence.length > 18 && (
+                <p className="intelligence-overflow">当前先展示前 18 条；继续收窄维度可定位具体情报。</p>
+              )}
+            </>
+          )}
         </section>
 
         <section className="report-section" id="full-report">
@@ -798,52 +737,9 @@ export function TrendExplorer() {
           <div className="section-heading-row report-heading">
             <div>
               <h2 className="section-title">完整报告</h2>
-              <p className="section-description">先通过信息面板判断章节价值，再选择单章阅读或展开全部内容。</p>
+              <p className="section-description">通过章节目录选择单章阅读，或展开全部内容核对完整证据。</p>
             </div>
             <span className="section-note">共 {report.metrics.sections} 个章节</span>
-          </div>
-
-          <section className="report-brief" aria-labelledby="report-brief-title">
-            <div className="report-brief-copy">
-              <p>REPORT SUMMARY</p>
-              <h3 id="report-brief-title">报告摘要</h3>
-              <strong>{report.subtitle}</strong>
-              <span>观察周期：{report.coverage}</span>
-            </div>
-            <div className="report-brief-signals">
-              {report.directions.map((direction) => (
-                <button key={direction.index} type="button" onClick={() => chooseSection(overviewSection)}>
-                  <span>0{direction.index}</span>
-                  <strong>{direction.title}</strong>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <div className="section-card-grid" aria-label="报告章节信息面板">
-            {sectionCards.map((card) => (
-              <button
-                className={`section-card ${active.id === card.section.id ? "active" : ""}`}
-                key={card.section.id}
-                type="button"
-                onClick={() => chooseSection(card.section)}
-                aria-pressed={active.id === card.section.id}
-              >
-                <div className="section-card-topline">
-                  <span>{card.section.numeral}</span>
-                  <small>约 {card.readingSize} 千字</small>
-                </div>
-                <h3>{card.section.title}</h3>
-                <p>{card.summary}</p>
-                <div className="section-card-tags">
-                  <span>{card.section.subsections.length} 个小节</span>
-                  {card.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}
-                </div>
-                <div className="section-density" aria-label={`内容体量约占最长章节的 ${card.density}%`}>
-                  <span style={{ width: `${card.density}%` }} />
-                </div>
-              </button>
-            ))}
           </div>
 
           <div className="report-reader-toolbar">
@@ -933,7 +829,6 @@ export function TrendExplorer() {
                       <span>{section.numeral}</span>
                       <div>
                         <h2>{section.title}</h2>
-                        <p>{getSectionSummary(section)}</p>
                       </div>
                     </div>
                     <SectionBody section={section} />
