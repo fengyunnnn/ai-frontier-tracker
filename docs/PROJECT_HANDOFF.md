@@ -393,6 +393,14 @@ CONTRIBUTING.md、docs/ARCHITECTURE.md、docs/CONTENT_SCHEMA.md，
 8. 不要在外部工具中复制私密 MCP 凭据、公司内部材料或用户会话记录。
 9. 判断线上版本必须比对提交源文件与线上产物，不能只在压缩 bundle 里搜关键词。
 10. 不要认为推送一个不影响构建产物的提交（如只改 `CHANGELOG.md`）“不会触发部署”——工作流无 paths 过滤，仍会重新构建并部署。
+11. **绝不在本仓库执行 `git stash`** —— Windows + PortableGit 下被中断会把 `.git` 元数据删进回收站（详见 §11.1）。
+12. **`.git` 内出现 `*.lock` 时，先取证再清除** —— 确认 size 为 0、mtime 早于当前、且无 `git` 进程在跑，再删除；曾因 `.git` 从回收站恢复而带回 `index.lock`、`HEAD.lock`、`packed-refs.lock`、`objects/maintenance.lock` 四个陈旧锁，直接清除即可，但**必须先判断是不是真锁**。
+
+### 11.1 已知事故：`.git` 被回收站删除后恢复（2026-09-14）
+
+`git stash push` 在 Windows 上被 SIGTERM 中断，把 `.git` 的 `refs/`、pack 与 348 个 loose objects 删进了回收站，仓库报 “not a git repository”。恢复方法：解析回收站 `$I<id>`（8B 头 + 8B size + 8B FILETIME + 4B 路径长 + UTF-16LE 原路径）与 `$R<id>`，映射回 `.git` 原路径 → **先沙箱重建并用 `git fsck --full` 验证** → 再原子落地（落地前备份现场 `.git`）。17 个提交全部找回。
+
+恢复的副作用：**回收站里同时带回了四个陈旧 `*.lock` 文件**，导致首次 `git add` 报 `index.lock: File exists`、首次 `git commit` 报 `HEAD.lock: File exists`。它们 size=0、mtime 早于事故时间，且当时无 `git` 进程，属陈旧锁，清除即可。
 
 ## 12. 下一位负责人确认清单
 
@@ -409,10 +417,11 @@ CONTRIBUTING.md、docs/ARCHITECTURE.md、docs/CONTENT_SCHEMA.md，
 
 截至 2026-09-14，基线与本地验证均已就绪，以下事项需明确授权后才能执行：
 
-1. **是否推送**：本地存在尚未推送的提交（推送数量以 `git rev-list --left-right --count origin/main...HEAD` 为准）。推送会触发一次 Pages 重新部署；其中阶段 1 页面层（`daf12f6`）尚未上线，推送后将首次上线。截至 2026-09-14，本机 `main` 领先 `origin/main` 6 个提交，其中 `0b2f9ef` 含 V2 规范与本期内容更新。
+1. **是否推送（仍未授权）**：本地存在尚未推送的提交，数量以 `git rev-list --left-right --count origin/main...HEAD` 为准（截至 2026-09-14 收尾时为 12）。推送会触发一次 Pages 重新部署；其中阶段 1 页面层（`daf12f6`）尚未上线，推送后将首次上线。**本轮三项内容整改已提交但同样未推送。**
 2. **推送后的完整冒烟**：按第 9.2 节完成标准，需依次确认 Actions 成功、Pages 部署完成、线上页面可访问、至少一条本周重点及其稳定锚点可正常跳转。缺一项都不得宣称“已发布”。
 3. **`CHANGELOG.md` 口径已修正（2026-09-14）**：V1.3 现按可核验事实记为已发布（2026-09-09，由 `26ef278` 部署）；阶段 1 页面层与四份 `docs/` 资产记入“待发布”区。远程仓库的 CHANGELOG 仍显示“待发布”，需推送 `48c96b9` 后才会与线上一致。
-4. **已知非阻断警告**：生产构建提示主 JavaScript 文件约 689 kB、大于 500 kB 阈值。不影响构建与功能，但建议在单独任务中评估按需代码分割，不要在内容治理阶段顺带重构。
+4. **已知非阻断警告**：生产构建提示主 JavaScript 文件约 747 kB、大于 500 kB 阈值。不影响构建与功能，但建议在单独任务中评估按需代码分割，不要在内容治理阶段顺带重构。
+5. **已决策并落地（2026-09-14）**：三项内容整改已获授权并提交，见 §14.4——八章标题去后缀（含删除重复的跟踪字段小节）、13 条跨周条目塞回自然周、22 条补 `情报维度`。无需再次决策。
 
 ## 14. 当前工作重心（2026-09-14 起）
 
@@ -463,3 +472,23 @@ CONTRIBUTING.md、docs/ARCHITECTURE.md、docs/CONTENT_SCHEMA.md，
 - 章节契约不受影响：8 个固定一级章节各出现 1 次；`## 持续观察` 为普通二级标题，不参与 `periodHeadings` 强校验；
 - 同步与门禁通过：`Synced … 8 sections, 12 highlights`；测试 4/4（含治理契约）；lint、`tsc --noEmit`、`vite build` 均通过；`intelligence=41`、`directions=4`、`sources=35`；
 - **副作用说明**：非日期分区（`持续观察`／`客户决策专题`）在页面按 `period` 分组时同样以独立分区呈现，顺序由 Markdown 章节内出现次序决定，无需改动 `sync-content.mjs` 或页面组件。
+
+### 14.4 已落地：三项内容整改（2026-09-14）
+
+由负责人拍板，针对内容源做了三项整改，拆为三笔原子提交（均为单文件职责，未混入无关改动）：
+
+| 提交 | 内容 | 文件 |
+|---|---|---|
+| `d03863e` | 八章二级标题去掉状态后缀，并删去重复的跟踪字段说明 | `content/行业动态追踪.md`、`app/content.generated.ts`、`docs/CONTENT_SCHEMA.md`、`tests/content-sync.test.mjs` |
+| `2a856e3` | 13 条跨周条目按各自证据归入自然周，删除 `## 持续观察` 标题 | `content/行业动态追踪.md`、`app/content.generated.ts` |
+| `84cbc98` | 为四—七章 22 条缺失条目补齐 `情报维度` | `content/行业动态追踪.md`、`app/content.generated.ts` |
+
+**三项口径**：
+
+1. **接受删除后缀**：`## 已有技术能力（存量材料）` → `## 已有技术能力`、`## 在研方向（待内部确认）` → `## 在研方向`，并删除 `## 待补充的跟踪字段` 小节及其上方说明段。**证据边界不受影响**——章首「内容边界」与「阅读说明」仍完整承载「存量材料 · 待内部确认」的口径（已逐条核对）；`docs/CONTENT_SCHEMA.md` §7 与 `tests/content-sync.test.mjs` 断言同步更新。
+2. **塞回自然周**：13 条原先集中在章末 `## 持续观察` 的跨周归纳条目，逐条依据其正文引用事件（GPT-Live 08-03、Qwen-Audio-3.0 08-17、Samsung IFA 09-03/09-04、清朗专项 09-02、NVIDIA NeMo Voice Agent 08-06 等）的 `发布时间`／`来源` 归入对应自然周；`## 持续观察` 标题删除（计数 0）。四章 8 条、六章 5 条。
+3. **补标**：22 条缺失 `情报维度` 的条目（四章 4、五章 7、六章 6、七章 5）逐条按正文内容补齐，复用既有词汇表（终端／能力／归因四值／层级 L1—L3），未新造术语。覆盖率 **19 → 41**，即四—七章每条情报条目均带该字段。
+
+**验证**：三笔提交各自 `node --test` **4/4 通过**、`git diff --cached --check` 退出码 0；收尾门禁 `sync-content`／测试 4/4／lint／`tsc --noEmit`／`vite build` 全过（746.94 kB 属已知非阻断大包警告）。结构不变式：8 个固定一级章节各 1 次、86 条四级条目、19 个稳定锚点、41 行 `情报维度`、28 个周期标题、0 个 `持续观察`；`app/content.generated.ts` 在同步与构建后无漂移。
+
+**溯源方法（值得复用）**：改动不是凭 diff 目测，而是**从 HEAD 重放三项脚本化编辑并要求与工作区逐字节相等**（`EXACT MATCH: True`），从而证明工作区差异恰为这三项，无夹带。归周与补标的中间态（stage1 → stage2 → stage3）均已落盘留档，stage2 → stage3 为**纯新增 22 行、零删除**。
