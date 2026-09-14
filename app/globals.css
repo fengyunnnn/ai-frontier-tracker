@@ -1654,34 +1654,34 @@ a {
     display: block;
     max-height: none;
     padding: 10px;
-    overflow: hidden;
+    overflow: visible;
     background: rgba(255, 255, 255, .96);
     box-shadow: var(--shadow-soft);
   }
 
   .side-nav p {
-    display: none;
+    display: block;
+    margin: 0 0 8px;
+    font-size: 10px;
+    letter-spacing: .1em;
   }
 
   .nav-button {
     width: auto;
-    flex: 0 0 auto;
-    padding: 8px 11px;
-    border: 1px solid transparent;
+    flex: 0 1 auto;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
     border-radius: 999px;
+    font-size: 12px;
+    line-height: 1.3;
     white-space: nowrap;
-    scroll-snap-align: start;
   }
 
   .primary-nav-list {
     display: flex;
-    overflow-x: auto;
+    flex-wrap: wrap;
+    overflow: visible;
     gap: 6px;
-    padding-bottom: 2px;
-    scroll-snap-type: x proximity;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
   }
 
   .sub-nav {
