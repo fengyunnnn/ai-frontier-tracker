@@ -17,7 +17,7 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
   assert.match(generated, /"id": "speech-agent-arena"/);
   assert.match(generated, /"title": "文档目的"/);
   assert.match(generated, /"title": "2026-08-24—2026-08-30"/);
-  assert.match(generated, /"title": "已有技术能力（存量材料）"/);
+  assert.match(generated, /"title": "已有技术能力"/);
   assert.match(generated, /\*\*能力总览\*\*/);
   assert.match(generated, /"title": "超拟人合成"/);
   assert.match(generated, /待内部确认/);
