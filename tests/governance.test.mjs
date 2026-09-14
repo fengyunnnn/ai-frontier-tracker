@@ -118,3 +118,39 @@ test("the narrow-viewport nav wraps instead of clipping chapters", async () => {
   assert.match(navListBlock, /flex-wrap: wrap/, "窄视口导航应换行，而不是横向滚动");
   assert.doesNotMatch(navListBlock, /overflow-x: auto/, "窄视口导航不应再使用横向滚动");
 });
+
+test("总览 covers capability, product, industry and internal layers", async () => {
+  const markdown = await readProjectFile("content/行业动态追踪.md");
+
+  // The overview must not read as operator-acceptance-only. It carries four
+  // layer judgements, each pointing at the chapter holding the evidence.
+  const overview = markdown.split(/^二、总览$/m)[1]?.split(/^三、本期重点摘要$/m)[0] ?? "";
+  assert.ok(overview.length > 0, "总览 章节必须存在");
+
+  const layers = ["【能力层】", "【产品层】", "【产业层】", "【我们自己】"];
+  for (const layer of layers) {
+    assert.match(overview, new RegExp(`^${layer}`, "m"), `总览必须包含“${layer}”层次`);
+  }
+
+  const chapterAnchors = overview.match(/^→ 对应章节：/gm) ?? [];
+  assert.equal(chapterAnchors.length, layers.length, "每个层次各需一个“对应章节”标记");
+
+  // The four original judgement entries stay intact — they are the sole data
+  // source of the page's 竞争判断分层 cards (report.directions) — so the
+  // framework is extended rather than replaced.
+  const judgements = [
+    "Level 1｜生存层：准入与内容闭环",
+    "Level 2｜竞争层：自然交互与真实场景",
+    "Level 3｜未来层：任务编排与跨端智能",
+    "横向诊断轴｜先归因，再投入",
+  ];
+  const overviewLines = overview.split("\n");
+  judgements.forEach((title, index) => {
+    assert.match(overview, new RegExp(`^${index + 1}\\. ${title}$`, "m"),
+      `总览必须保留第 ${index + 1} 条判断：${title}`);
+    // sync-content.mjs reads the next non-empty line as the card detail.
+    const line = overviewLines.findIndex((value) => value.trim() === `${index + 1}. ${title}`);
+    const detail = (overviewLines[line + 1] ?? "").trim();
+    assert.ok(detail.length > 0, `第 ${index + 1} 条判断必须紧跟一行说明`);
+  });
+});
