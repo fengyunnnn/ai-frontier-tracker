@@ -86,3 +86,35 @@ test("governance documents describe the same source-of-truth boundary", async ()
   assert.match(schema, /L1-生存层/);
   assert.match(schema, /资源\/商务问题/);
 });
+
+test("文档说明 covers scope and the dual-track definition", async () => {
+  const markdown = await readProjectFile("content/行业动态追踪.md");
+
+  // 一、文档说明 must declare a 内容覆盖 subsection.
+  assert.match(markdown, /^## 内容覆盖$/m, "文档说明必须包含“内容覆盖”小节");
+
+  // 内容覆盖 must carry the dual-track definition (previously buried under 更新方式)
+  // and state the track/topic relationship, so the report is not read as
+  // operator-acceptance-only.
+  const docSection = markdown.split(/^二、总览$/m)[0];
+  assert.match(docSection, /轨道 A｜交互体验与 AI 前沿战略雷达/);
+  assert.match(docSection, /轨道 B｜业务落地与产业约束雷达/);
+  assert.match(docSection, /不决定它属于哪个专题/);
+
+  // The source title must stay aligned with the page title.
+  assert.match(markdown, /语音交互与 AI 人机交互/);
+});
+
+test("the narrow-viewport nav wraps instead of clipping chapters", async () => {
+  const css = await readProjectFile("app/globals.css");
+
+  // Regression guard: the ≤860px nav once used `overflow-x: auto` on a single
+  // line, which is 1114px wide inside a ~340px viewport — chapters 四—七 were
+  // pushed out of view. It must now wrap into multiple rows instead.
+  const narrowBlock = css.slice(css.indexOf("@media (max-width: 860px)"));
+  const listStart = narrowBlock.indexOf(".primary-nav-list {");
+  assert.ok(listStart > -1, "窄视口区块必须定义 .primary-nav-list");
+  const navListBlock = narrowBlock.slice(listStart, narrowBlock.indexOf("}", listStart));
+  assert.match(navListBlock, /flex-wrap: wrap/, "窄视口导航应换行，而不是横向滚动");
+  assert.doesNotMatch(navListBlock, /overflow-x: auto/, "窄视口导航不应再使用横向滚动");
+});
