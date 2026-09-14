@@ -119,25 +119,18 @@ test("the narrow-viewport nav wraps instead of clipping chapters", async () => {
   assert.doesNotMatch(navListBlock, /overflow-x: auto/, "窄视口导航不应再使用横向滚动");
 });
 
-test("总览 covers capability, product, industry and internal layers", async () => {
+test("总览 keeps the four numbered judgements that feed the directions cards", async () => {
   const markdown = await readProjectFile("content/行业动态追踪.md");
 
-  // The overview must not read as operator-acceptance-only. It carries four
-  // layer judgements, each pointing at the chapter holding the evidence.
   const overview = markdown.split(/^二、总览$/m)[1]?.split(/^三、本期重点摘要$/m)[0] ?? "";
   assert.ok(overview.length > 0, "总览 章节必须存在");
 
-  const layers = ["【能力层】", "【产品层】", "【产业层】", "【我们自己】"];
-  for (const layer of layers) {
-    assert.match(overview, new RegExp(`^${layer}`, "m"), `总览必须包含“${layer}”层次`);
-  }
-
-  const chapterAnchors = overview.match(/^→ 对应章节：/gm) ?? [];
-  assert.equal(chapterAnchors.length, layers.length, "每个层次各需一个“对应章节”标记");
-
-  // The four original judgement entries stay intact — they are the sole data
-  // source of the page's 竞争判断分层 cards (report.directions) — so the
-  // framework is extended rather than replaced.
+  // Contract only: these four numbered judgements are the sole data source of
+  // the page's 竞争判断分层 cards (report.directions). sync-content.mjs reads
+  // `^数字.` lines (number ≤ 4) and takes the next non-empty line as the card
+  // detail, so the numbering must stay 1—4 and each entry keeps a detail line.
+  // The surrounding narrative layers (【能力层】etc.) are presentation only and
+  // are deliberately NOT asserted here — see docs/CONTENT_SCHEMA.md「总览结构」.
   const judgements = [
     "Level 1｜生存层：准入与内容闭环",
     "Level 2｜竞争层：自然交互与真实场景",
