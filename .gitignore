@@ -54,3 +54,7 @@ yarn-error.log*
 /next.config.ts
 /package-lock.json
 /scripts/run-vinext.mjs
+
+
+# 内部原始材料与脱敏样本：永不进入公开仓库
+/internal/

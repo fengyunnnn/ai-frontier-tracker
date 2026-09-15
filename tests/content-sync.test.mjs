@@ -22,13 +22,29 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
   assert.match(generated, /"title": "重点摘要"/);
   assert.match(generated, /"id": "section-8"/);
   // 第八章「公司内部进展」按内容负责人决定复原（2026-09-15）。
-  // 下面的反向断言与章节无关：内部端点/错误码/压测标识经 2026-09-14 脱敏后必须保持为 0，
-  // 复原第八章不得把已脱敏的字符串带回来。
+  // 反向断言与章节无关：内部端点/错误码/压测标识经脱敏后必须保持为 0。
+  // 为避免把内部标识写回公开仓库，精确样本清单放在 .gitignore 覆盖的 internal/ 下：
+  // 本地存在时按清单逐个断言；CI 等无该文件的环境退化为下面的通用结构断言。
   assert.match(generated, /"title": "已有技术能力"/);
   assert.match(generated, /\*\*能力总览\*\*/);
   assert.match(generated, /"title": "超拟人合成"/);
-  assert.match(generated, /待内部确认/);
-  assert.doesNotMatch(generated, /xf-yun|xfyun\.cn|aipaasapi|内存超64GB|10909/);
+  assert.match(generated, /存量材料/);
+  let forbiddenTokens = [];
+  try {
+    const rawForbidden = await readFile(
+      new URL("../internal/forbidden-public-tokens.txt", import.meta.url),
+      "utf8",
+    );
+    forbiddenTokens = rawForbidden.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  } catch {
+    forbiddenTokens = [];
+  }
+  for (const token of forbiddenTokens) {
+    assert.ok(!generated.includes(token), `脱敏回归：产物不应包含内部标识「${token}」`);
+  }
+  // 通用结构断言（不写具体内部值）：内部 API 主机形态、压测内存口径。
+  assert.doesNotMatch(generated, /(?:ws|http)s?:\/\/[a-z0-9.-]+\.(?:com|cn)\/v\d/);
+  assert.doesNotMatch(generated, /内存(?:占用|使用)?超\s*\d{2,}\s*GB/);
   assert.match(generated, /Level 1｜生存层：准入与内容闭环/);
   assert.match(generated, /Level 2｜竞争层：自然交互与真实场景/);
   assert.match(generated, /Level 3｜未来层：任务编排与跨端智能/);
@@ -48,5 +64,5 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
     assert.match(generated, new RegExp(`"id": "${detailId}"`));
   }
   assert.doesNotMatch(generated, /SkeletonPreview|codex-preview/);
-  assert.doesNotMatch(generated, /暂时无法在i讯飞文档外展示此内容/);
+  assert.doesNotMatch(generated, /暂时无法在.{0,12}文档外展示此内容/);
 });

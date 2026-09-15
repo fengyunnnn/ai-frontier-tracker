@@ -213,7 +213,7 @@ ai-frontier-tracker
 2. 事实与变化：……
 3. 核心机制或能力：……
 4. 证据与边界：……
-5. 对 OS 平台部的影响：……
+5. 对 平台团队的影响：……
 6. 建议动作：……
 7. 来源：https://example.invalid/official
 发布时间：2026-09-07
@@ -234,7 +234,7 @@ ai-frontier-tracker
 | `conclusion_summary` | 正文第一条“结论摘要” | 内容目标；当前脚本仍从正文首个长句提取 |
 | `fact_and_change` | “事实与变化” | 已有内容位置 |
 | `evidence_boundary` | “证据与边界” | 已有内容位置 |
-| `business_impact` | “对 OS 平台部的影响” | 已有内容位置 |
+| `business_impact` | “对 平台团队的影响” | 已有内容位置 |
 | `next_action` | “建议动作” | 已有内容位置 |
 | `source_links` | “来源” | 已有内容位置，尚未独立结构化 |
 | `publish_date` | “发布时间” | 已有内容位置，尚未独立结构化到情报对象 |
@@ -486,7 +486,7 @@ candidates:
 | 重点判断 | `impact_summary` | 七列表格第 4 列 | `impact_summary`、`highlight_eligible` | `confirmed_facts`、`business_relevance`、`priority_reason` |
 | 详细结论 | `conclusion_summary` | 条目“结论摘要” | `conclusion_summary` | 事实、变化、限制、业务关联 |
 | 证据 | 正文与来源入口 | 事实、证据边界、来源、核验状态 | `fact_and_change`、`evidence_boundary`、来源、核验状态 | 一手/二手来源、官方声称、外部证据 |
-| 业务意义 | 情报摘要和正文 | “对 OS 平台部的影响” | `business_impact` | `business_relevance` |
+| 业务意义 | 情报摘要和正文 | “对 平台团队的影响” | `business_impact` | `business_relevance` |
 | 动作 | 详细正文 | “建议动作” | `next_action` | `questions_to_verify` |
 | 章节摘要 | `chapter_summary` | 一级章节后的预留摘要行 | 4 个章节级字段 | 该章节入选事件集合 | 
 
@@ -512,7 +512,7 @@ candidates:
 | 情报摘要 | 条目第一条“结论摘要” | `conclusion_summary` | 已确认事实、变化、限制与业务意义 | 内容位置目标明确，解析仍为启发式 |
 | 事实与变化 | 条目“事实与变化” | `fact_and_change` | `confirmed_facts`、`changes_vs_previous` | 内容闭环 |
 | 证据边界 | 条目“证据与边界” | `evidence_boundary` | 官方声称、外部证据、已知限制 | 内容闭环 |
-| 业务影响 | 条目“对 OS 平台部的影响” | `business_impact` | `business_relevance`及核验事实 | 内容闭环，内部事实需人工确认 |
+| 业务影响 | 条目“对 平台团队的影响” | `business_impact` | `business_relevance`及核验事实 | 内容闭环，内部事实需人工确认 |
 | 下一步动作 | 条目“建议动作” | `next_action` | `questions_to_verify`、限制和业务影响 | 内容闭环 |
 | 核验状态 | 条目“核验状态” | `verification_status` | 来源完整性与问题回答情况 | 内容有位置，尚未独立生成字段 |
 | 搜索章节信息 | 一级章节和内容标题 | `report_section`、`detail_title` | 同上 | 当前由生成结构提供 |

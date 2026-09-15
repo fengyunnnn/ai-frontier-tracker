@@ -196,7 +196,7 @@ function InternalProgressReport({ section }: { section: Section }) {
     <details className="internal-capability-card" id={item.id} key={item.id}>
       <summary>
         <span>{item.title}</span>
-        <small>存量材料 · 待内部确认</small>
+        <small>状态：存量材料</small>
       </summary>
       <div className="internal-capability-body">
         <MarkdownFragment content={item.body} />
@@ -549,7 +549,7 @@ export function TrendExplorer() {
           <p className="hero-copy">{report.subtitle}</p>
           <div className="meta-row">
             <span className="meta-pill">观察周期：{report.coverage}</span>
-            <span className="meta-pill">面向 OS 平台部管理者、产品与研发</span>
+            <span className="meta-pill">面向平台团队管理者、产品与研发</span>
             <span className="meta-pill">更新于 {updatedAt}</span>
           </div>
           <a className="hero-action" href="#full-report">浏览全部 {report.metrics.sections} 个章节 <span aria-hidden="true">↓</span></a>

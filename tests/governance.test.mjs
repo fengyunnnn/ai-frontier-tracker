@@ -30,7 +30,7 @@ test("the Markdown source keeps the required report contract", async () => {
     /^\| 事件 \| 类型 \| 关键词 \| 一句话影响判断 \| 来源 \| 发布时间 \| 详细分析 \|$/m,
   );
 
-  assert.doesNotMatch(markdown, /暂时无法在i讯飞文档外展示此内容|\[if !supportLists\]|\[endif\]|mso-/i);
+  assert.doesNotMatch(markdown, /暂时无法在.{0,12}文档外展示此内容|\[if !supportLists\]|\[endif\]|mso-/i);
   assert.match(markdown, /^#### .+ \{#[a-z0-9][a-z0-9-]*\}$/m);
   assert.match(
     markdown,
@@ -43,7 +43,7 @@ test("the Markdown source keeps the required report contract", async () => {
 
   const periodHeadings = markdown.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
   assert.ok(periodHeadings.length >= 1, "at least one normalized period heading is required");
-  assert.match(markdown, /^八、公司内部进展[\s\S]*待内部确认/m);
+  assert.match(markdown, /^八、公司内部进展[\s\S]*存量材料/m);
   assert.match(markdown, /^八、公司内部进展[\s\S]*^\*\*能力总览\*\*$/m);
   assert.match(markdown, /^八、公司内部进展[\s\S]*^### 语音合成（TTS）$/m);
   assert.match(markdown, /^八、公司内部进展[\s\S]*^#### 超拟人合成$/m);
@@ -81,7 +81,7 @@ test("governance documents describe the same source-of-truth boundary", async ()
 
   assert.match(schema, /固定一级章节/);
   assert.match(schema, /YYYY-MM-DD/);
-  assert.match(schema, /待内部确认/);
+  assert.match(schema, /存量材料/);
   assert.match(schema, /情报维度/);
   assert.match(schema, /L1-生存层/);
   assert.match(schema, /资源\/商务问题/);

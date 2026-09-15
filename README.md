@@ -23,6 +23,8 @@
 
 `dev` 和 `build` 执行前都会自动同步 Markdown。若源文件改名或迁移，可设置 `SOURCE_MARKDOWN` 为新的路径。
 
+> ⚠️ **禁止在本仓库执行 `git stash`。** 在 Windows + PortableGit 环境下可能损坏 `.git` 元数据且难以恢复；需要暂存改动时，改用临时分支或复制源文件。详见 `AGENTS.md`「禁止事项」。
+
 ## 发布到 GitHub Pages
 
 1. 将本目录推送到 GitHub 仓库的 `main` 分支。
@@ -30,6 +32,12 @@
 3. 每次推送到 `main` 后，`.github/workflows/deploy-pages.yml` 会自动构建和发布网页。
 
 当前发布地址：`https://fengyunnnn.github.io/ai-frontier-tracker/`。
+
+> ⚠️ **迁移说明（2026-09-15 起）**：本仓库的公开历史中包含早期未脱敏文本，已决定**重建一个干净仓库**（`ai-frontier-tracker-public`）承载公开内容，旧仓库随后转为 **Archive**（只读、标注不再更新）。迁移完成后：
+>
+> - 线上地址将由 `https://fengyunnnn.github.io/ai-frontier-tracker/` 变为新仓库对应的 Pages 地址，**上述旧链接将失效**；
+> - 仓库内容（Markdown 内容源、同步脚本、网页代码）保持一致，`main` 分支的提交历史不连续（新仓库为单次初始提交）；
+> - 迁移期间以本仓库 `CHANGELOG.md` 记录的实际状态为准。
 
 ## 版本记录
 
