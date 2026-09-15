@@ -39,7 +39,7 @@
 
 - `AGENTS.md`：人工与 AI 均需遵守的项目边界。
 - `docs/ARCHITECTURE.md`：数据流、文件职责和依赖方向。
-- `docs/CONTENT_SCHEMA.md`：Markdown 标题、日期、字段格式和内部内容边界。
+- `docs/CONTENT_SCHEMA.md`：Markdown 标题、日期、字段和内部进展格式。
 - `CONTRIBUTING.md`：内容、视觉、交互、数据格式和发布的操作流程。
 - `.github/pull_request_template.md`：每次变更的提交前检查清单。
 

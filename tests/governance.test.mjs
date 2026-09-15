@@ -9,11 +9,12 @@ const readProjectFile = (path) => readFile(new URL(path, root), "utf8");
 const requiredSections = [
   "一、文档说明",
   "二、总览",
-  "三、本期重点摘要",
+  "三、重点摘要",
   "四、行业动态",
   "五、产品动态",
   "六、技术革新",
   "七、竞品与标杆公司动态",
+  "八、公司内部进展",
 ];
 
 test("the Markdown source keeps the required report contract", async () => {
@@ -42,6 +43,10 @@ test("the Markdown source keeps the required report contract", async () => {
 
   const periodHeadings = markdown.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
   assert.ok(periodHeadings.length >= 1, "at least one normalized period heading is required");
+  assert.match(markdown, /^八、公司内部进展[\s\S]*待内部确认/m);
+  assert.match(markdown, /^八、公司内部进展[\s\S]*^\*\*能力总览\*\*$/m);
+  assert.match(markdown, /^八、公司内部进展[\s\S]*^### 语音合成（TTS）$/m);
+  assert.match(markdown, /^八、公司内部进展[\s\S]*^#### 超拟人合成$/m);
 });
 
 test("generated and build outputs remain governed artifacts", async () => {
@@ -128,7 +133,7 @@ test("the narrow-viewport nav wraps instead of clipping chapters", async () => {
 test("总览 keeps the four numbered judgements that feed the directions cards", async () => {
   const markdown = (await readProjectFile("content/行业动态追踪.md")).replace(/\r\n/g, "\n");
 
-  const overview = markdown.split(/^二、总览$/m)[1]?.split(/^三、本期重点摘要$/m)[0] ?? "";
+  const overview = markdown.split(/^二、总览$/m)[1]?.split(/^三、重点摘要$/m)[0] ?? "";
   assert.ok(overview.length > 0, "总览 章节必须存在");
 
   // Contract only: these four numbered judgements are the sole data source of
@@ -159,7 +164,7 @@ test("章节渲染器不再向 Markdown 注入裸标题标签", async () => {
 
   // 把 Markdown 标题替换成裸 `<h2>` 会开启 CommonMark 的 HTML block：它会把标题
   // 后面直到空行为止的所有内容（列表、表格、正文）整段吞成纯文本。2026-09-14 之前
-  // 线上表现就是「文档说明分点不换行」「总览挤成一坨」「本期重点摘要表格显示成
+  // 线上表现就是「文档说明分点不换行」「总览挤成一坨」「重点摘要表格显示成
   // 一片竖线」。标题必须先由 marked 解析，再按文档顺序回填 id。反向断言防止回退。
   assert.doesNotMatch(component, /`<h\$\{level\}/, "不得再把标题替换成裸 HTML 标签");
   assert.match(component, /marked\.parse\(body, \{ gfm: true, breaks: true \}\)/);
@@ -167,7 +172,7 @@ test("章节渲染器不再向 Markdown 注入裸标题标签", async () => {
 
 test("总览正文以空行分块，避免整章被渲染成一整段", async () => {
   const markdown = (await readProjectFile("content/行业动态追踪.md")).replace(/\r\n/g, "\n");
-  const overview = markdown.split(/^二、总览$/m)[1]?.split(/^三、本期重点摘要$/m)[0] ?? "";
+  const overview = markdown.split(/^二、总览$/m)[1]?.split(/^三、重点摘要$/m)[0] ?? "";
 
   const rawLines = overview.split("\n").map((line) => line.trim());
   const unseparated = [];

@@ -18,9 +18,16 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
   assert.match(generated, /"title": "文档目的"/);
   assert.match(generated, /"title": "2026-08-24—2026-08-30"/);
   assert.match(generated, /"numeral": "七"/);
-  // 2026-09-14：第八章「公司内部进展」已移出公开内容源（见 docs/CONTENT_SCHEMA.md §7）。
-  // 公开构建产物不得再出现内部能力明细或内部端点/错误码/压测标识。
-  assert.doesNotMatch(generated, /公司内部进展/);
+  assert.match(generated, /"numeral": "八"/);
+  assert.match(generated, /"title": "重点摘要"/);
+  assert.match(generated, /"id": "section-8"/);
+  // 第八章「公司内部进展」按内容负责人决定复原（2026-09-15）。
+  // 下面的反向断言与章节无关：内部端点/错误码/压测标识经 2026-09-14 脱敏后必须保持为 0，
+  // 复原第八章不得把已脱敏的字符串带回来。
+  assert.match(generated, /"title": "已有技术能力"/);
+  assert.match(generated, /\*\*能力总览\*\*/);
+  assert.match(generated, /"title": "超拟人合成"/);
+  assert.match(generated, /待内部确认/);
   assert.doesNotMatch(generated, /xf-yun|xfyun\.cn|aipaasapi|内存超64GB|10909/);
   assert.match(generated, /Level 1｜生存层：准入与内容闭环/);
   assert.match(generated, /Level 2｜竞争层：自然交互与真实场景/);

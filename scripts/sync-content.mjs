@@ -184,7 +184,7 @@ for (let index = 0; index < overviewLines.length; index += 1) {
 }
 
 const highlights = [];
-const summaryBody = sections.find((section) => section.title === "本期重点摘要")?.body ?? "";
+const summaryBody = sections.find((section) => section.title === "重点摘要")?.body ?? "";
 // 表格按 `## YYYY-MM-DD—YYYY-MM-DD` 分周；把周区间带给每条 highlight，
 // 页面「本期值得优先关注」据此做周期切换 Tab，而不是把 8 个日期组纵向堆起来。
 let highlightPeriod = "";

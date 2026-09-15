@@ -21,6 +21,15 @@ const searchScopes = [
 
 type SearchScopeId = (typeof searchScopes)[number]["id"];
 
+/** 左侧常驻导航栏的板块入口：与页面各 section 的 id 一一对应。 */
+const railTargets = [
+  { id: "weekly-highlights", label: "本期值得优先关注" },
+  { id: "core-signals", label: "竞争判断分层" },
+  { id: "search-hub", label: "搜索全部报告" },
+  { id: "intelligence-hub", label: "多维情报筛选" },
+  { id: "full-report", label: "完整报告" },
+] as const;
+
 /**
  * 把一章 Markdown 渲染成 HTML，并给标题挂上内容锚点。
  *
@@ -28,7 +37,7 @@ type SearchScopeId = (typeof searchScopes)[number]["id"];
  * Markdown 标题解析，最后按文档顺序回填 id。绝不能把标题直接换成裸 `<h2>` 标签——
  * 裸标签会开启 CommonMark 的 HTML block，把它后面直到空行为止的所有内容（列表、
  * 表格、正文）整段吞成纯文本：这正是「文档说明分点不换行」「总览挤成一坨」
- * 「本期重点摘要表格显示成一片竖线」的共同原因。
+ * 「重点摘要表格显示成一片竖线」的共同原因。
  */
 function renderMarkdown(section: Section) {
   const body = section.body.replace(
@@ -68,6 +77,56 @@ function cleanMarkdownLine(line: string) {
 /** 周期区间在 Tab 上压成短标签（2026-09-14—2026-09-20 → 09-14—09-20）更易扫读。 */
 function shortPeriod(period: string) {
   return period.replace(/^\d{4}-/, "").replace(/—\d{4}-/, "—");
+}
+
+type InternalCapability = { id: string; title: string; body: string };
+type InternalCategory = { id: string; title: string; body: string; capabilities: InternalCapability[] };
+type InternalGroup = { id: string; title: string; body: string; categories: InternalCategory[]; capabilities: InternalCapability[] };
+
+function parseInternalProgress(section: Section) {
+  const result: { preamble: string; groups: InternalGroup[] } = { preamble: "", groups: [] };
+  let group: InternalGroup | undefined;
+  let category: InternalCategory | undefined;
+  let capability: InternalCapability | undefined;
+  let headingIndex = 0;
+  let buffer: string[] = [];
+
+  const flush = () => {
+    const body = buffer.join("\n").trim();
+    if (capability) capability.body = body;
+    else if (category) category.body = body;
+    else if (group) group.body = body;
+    else result.preamble = body;
+    buffer = [];
+  };
+
+  section.body.split("\n").forEach((line) => {
+    const headingMatch = line.match(/^(#{2,4})\s+(.+?)(?:\s+\{#[a-z0-9][a-z0-9-]*\})?\s*$/);
+    if (!headingMatch) {
+      buffer.push(line);
+      return;
+    }
+    flush();
+    const heading = section.contentHeadings[headingIndex];
+    headingIndex += 1;
+    if (!heading) return;
+    if (heading.level === 2) {
+      group = { id: heading.id, title: heading.title, body: "", categories: [], capabilities: [] };
+      result.groups.push(group);
+      category = undefined;
+      capability = undefined;
+    } else if (heading.level === 3 && group) {
+      category = { id: heading.id, title: heading.title, body: "", capabilities: [] };
+      group.categories.push(category);
+      capability = undefined;
+    } else if (heading.level === 4 && group) {
+      capability = { id: heading.id, title: heading.title, body: "" };
+      if (category) category.capabilities.push(capability);
+      else group.capabilities.push(capability);
+    }
+  });
+  flush();
+  return result;
 }
 
 function MarkdownFragment({ content }: { content: string }) {
@@ -131,7 +190,48 @@ function IntelligenceReport({ section }: { section: Section }) {
   );
 }
 
+function InternalProgressReport({ section }: { section: Section }) {
+  const internal = useMemo(() => parseInternalProgress(section), [section]);
+  const renderCapability = (item: InternalCapability) => (
+    <details className="internal-capability-card" id={item.id} key={item.id}>
+      <summary>
+        <span>{item.title}</span>
+        <small>存量材料 · 待内部确认</small>
+      </summary>
+      <div className="internal-capability-body">
+        <MarkdownFragment content={item.body} />
+      </div>
+    </details>
+  );
+
+  return (
+    <div className="markdown-body internal-progress-report">
+      <MarkdownFragment content={internal.preamble} />
+      {internal.groups.map((group) => (
+        <section className="internal-progress-group" key={group.id}>
+          <h2 id={group.id} tabIndex={-1}>{group.title}</h2>
+          <MarkdownFragment content={group.body} />
+          {group.capabilities.length > 0 && (
+            <div className="internal-capability-grid">{group.capabilities.map(renderCapability)}</div>
+          )}
+          {group.categories.map((item) => (
+            <section className="internal-category" key={item.id}>
+              <div className="internal-category-heading">
+                <h3 id={item.id} tabIndex={-1}>{item.title}</h3>
+                <span>{item.capabilities.length} 项能力</span>
+              </div>
+              <MarkdownFragment content={item.body} />
+              <div className="internal-capability-grid">{item.capabilities.map(renderCapability)}</div>
+            </section>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function SectionBody({ section }: { section: Section }) {
+  if (section.title === "公司内部进展") return <InternalProgressReport section={section} />;
   if (["行业动态", "产品动态", "技术革新", "竞品与标杆公司动态"].includes(section.title)) {
     return <IntelligenceReport section={section} />;
   }
@@ -165,9 +265,11 @@ export function TrendExplorer() {
   const [levelFilter, setLevelFilter] = useState("all");
   const [readingMode, setReadingMode] = useState<ReadingMode>("single");
   const [highlightPeriod, setHighlightPeriod] = useState("");
+  const [railSection, setRailSection] = useState<string>(railTargets[0].id);
   const [readingProgress, setReadingProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const filterDetailsRef = useRef<HTMLDetailsElement>(null);
   const active = report.sections.find((section) => section.id === activeId) ?? report.sections[0];
   const updatedAt = new Intl.DateTimeFormat("zh-CN", {
     year: "numeric",
@@ -202,6 +304,22 @@ export function TrendExplorer() {
     updateReadingProgress();
     window.addEventListener("scroll", updateReadingProgress, { passive: true });
     return () => window.removeEventListener("scroll", updateReadingProgress);
+  }, []);
+
+  // 左栏高亮跟读：滚动时把当前正在阅读的板块标出来，导航与内容始终对得上。
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.find((entry) => entry.isIntersecting);
+        if (visible) setRailSection(visible.target.id);
+      },
+      { rootMargin: "-20% 0px -70% 0px" },
+    );
+    railTargets.forEach((target) => {
+      const element = document.getElementById(target.id);
+      if (element) observer.observe(element);
+    });
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -338,6 +456,12 @@ export function TrendExplorer() {
   const facetsAreActive = [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter]
     .some((value) => value !== "all");
 
+  // 「多维情报筛选」的结果区默认折叠。从左栏改完筛选却看不到结果是坏体验，
+  // 因此只要有筛选条件生效就自动展开一次；用户随后手动收起则不再干预。
+  useEffect(() => {
+    if (facetsAreActive && filterDetailsRef.current) filterDetailsRef.current.open = true;
+  }, [facetsAreActive]);
+
   const resetFacets = () => {
     setTerminalFilter("all");
     setCapabilityFilter("all");
@@ -351,6 +475,12 @@ export function TrendExplorer() {
     setReadingMode("single");
     window.history.replaceState(null, "", `#${section.id}`);
     document.getElementById("report-explorer")?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  /** 左栏板块导航：平滑滚动到目标板块，并立刻把高亮切过去（不等 observer 回填）。 */
+  const jumpToRailTarget = (id: string) => {
+    setRailSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const chooseContentHeading = (section: Section, contentHeading: ContentHeading) => {
@@ -397,8 +527,8 @@ export function TrendExplorer() {
       ? report.sections.find((section) => section.contentHeadings.some((heading) => heading.id === detailId))
       : undefined;
     const section = preciseSection ?? report.sections.find(
-      (candidate) => candidate.title !== "本期重点摘要" && candidate.body.includes(event),
-    ) ?? report.sections.find((candidate) => candidate.title === "本期重点摘要") ?? report.sections[0];
+      (candidate) => candidate.title !== "重点摘要" && candidate.body.includes(event),
+    ) ?? report.sections.find((candidate) => candidate.title === "重点摘要") ?? report.sections[0];
     return {
       section,
       contentHeading: detailId
@@ -426,14 +556,112 @@ export function TrendExplorer() {
         </div>
       </header>
 
-      <div className="dashboard">
-        <section className="metric-grid" aria-label="报告数据概览">
-          <Metric value={report.metrics.directions} label="累计判断主线" />
-          <Metric value={report.metrics.highlights} label="本期重点事件" />
-          <Metric value={report.metrics.sections} label="报告主板块" />
-          <Metric value={report.metrics.sources} label="文档来源链接" />
-        </section>
+      {/* 常驻左栏：整页可见的导航 + 分类筛选，滚动时固定在视口内。 */}
+      <div className="shell-body">
+        <aside className="site-rail" aria-label="报告导航与分类筛选">
+          <nav className="rail-block" aria-label="板块导航">
+            <p>QUICK JUMP</p>
+            <div className="rail-link-list">
+              {railTargets.map((target) => (
+                <button
+                  className={railSection === target.id ? "rail-link active" : "rail-link"}
+                  key={target.id}
+                  type="button"
+                  aria-current={railSection === target.id ? "true" : undefined}
+                  onClick={() => jumpToRailTarget(target.id)}
+                >
+                  {target.label}
+                </button>
+              ))}
+            </div>
+          </nav>
 
+          <nav className="rail-block" aria-label="报告章节">
+            <p>REPORT INDEX · {report.metrics.sections} CHAPTERS</p>
+            <div className="primary-nav-list">
+              {report.sections.map((section) => (
+                <button
+                  className={`nav-button ${section.id === active.id ? "active" : ""}`}
+                  key={section.id}
+                  onClick={() => readingMode === "all"
+                    ? document.getElementById(`all-${section.id}`)?.scrollIntoView({ behavior: "smooth" })
+                    : chooseSection(section)}
+                  type="button"
+                  aria-current={section.id === active.id ? "page" : undefined}
+                >
+                  {section.numeral}、{section.title}
+                </button>
+              ))}
+            </div>
+            {readingMode === "single" && active.subsections.length > 0 && (
+              <div className="sub-nav" aria-label={`${active.title}二级导航`}>
+                <span>本章目录</span>
+                {active.subsections.map((subsection) => (
+                  <button
+                    className={(subsection.level as number) === 3 ? "sub-nav-button nested" : "sub-nav-button"}
+                    key={subsection.id}
+                    onClick={() => chooseSubsection(active, subsection)}
+                    type="button"
+                  >
+                    {subsection.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </nav>
+
+          <section className="rail-block" aria-label="分类筛选">
+            <p>FILTER · 分类筛选</p>
+            <div className="rail-filters">
+              <label>
+                <span>终端类型</span>
+                <select value={terminalFilter} onChange={(event) => setTerminalFilter(event.target.value)}>
+                  <option value="all">全部终端</option>
+                  {facetOptions.terminals.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>能力域</span>
+                <select value={capabilityFilter} onChange={(event) => setCapabilityFilter(event.target.value)}>
+                  <option value="all">全部能力</option>
+                  {facetOptions.capabilities.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>竞对</span>
+                <select value={competitorFilter} onChange={(event) => setCompetitorFilter(event.target.value)}>
+                  <option value="all">全部竞对</option>
+                  {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>问题归因</span>
+                <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
+                  <option value="all">全部归因</option>
+                  {facetOptions.attributions.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>竞争层级</span>
+                <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+                  <option value="all">全部层级</option>
+                  {facetOptions.levels.map((value) => <option value={value} key={value}>{value}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="rail-filter-foot">
+              <span>命中 <b>{filteredIntelligence.length}</b> 条情报</span>
+              <button className="reset-facets" type="button" onClick={resetFacets} disabled={!facetsAreActive}>重置</button>
+            </div>
+            {facetsAreActive && (
+              <button className="rail-more" type="button" onClick={() => jumpToRailTarget("intelligence-hub")}>
+                查看筛选结果 <span aria-hidden="true">↓</span>
+              </button>
+            )}
+          </section>
+        </aside>
+
+        <div className="dashboard">
         <section id="weekly-highlights">
           <p className="section-kicker">WEEKLY HIGHLIGHTS</p>
           <div className="section-heading-row">
@@ -512,7 +740,7 @@ export function TrendExplorer() {
           </div>
         </section>
 
-        <section className="search-hub" aria-labelledby="search-title">
+        <section className="search-hub" id="search-hub" aria-labelledby="search-title">
           <div className="search-heading">
             <div>
               <p className="section-kicker">SEARCH THE REPORT</p>
@@ -592,8 +820,8 @@ export function TrendExplorer() {
           )}
         </section>
 
-        <section className="intelligence-hub" aria-labelledby="intelligence-filter-title">
-          <details className="intelligence-filter-disclosure">
+        <section className="intelligence-hub" id="intelligence-hub" aria-labelledby="intelligence-filter-title">
+          <details className="intelligence-filter-disclosure" ref={filterDetailsRef}>
             <summary className="intelligence-filter-summary">
               <span>
                 <span className="section-kicker">COMPETITIVE INTELLIGENCE</span>
@@ -701,40 +929,6 @@ export function TrendExplorer() {
           </div>
 
           <div className={`explorer ${readingMode === "all" ? "all-mode" : ""}`} id="report-explorer">
-            <nav className="side-nav" aria-label="报告章节">
-              <p>REPORT INDEX · {report.metrics.sections} CHAPTERS</p>
-              <div className="primary-nav-list">
-                {report.sections.map((section) => (
-                  <button
-                    className={`nav-button ${section.id === active.id ? "active" : ""}`}
-                    key={section.id}
-                    onClick={() => readingMode === "all"
-                      ? document.getElementById(`all-${section.id}`)?.scrollIntoView({ behavior: "smooth" })
-                      : chooseSection(section)}
-                    type="button"
-                    aria-current={section.id === active.id ? "page" : undefined}
-                  >
-                    {section.numeral}、{section.title}
-                  </button>
-                ))}
-              </div>
-              {readingMode === "single" && active.subsections.length > 0 && (
-                <div className="sub-nav" aria-label={`${active.title}二级导航`}>
-                  <span>本章目录</span>
-                  {active.subsections.map((subsection) => (
-                    <button
-                      className={(subsection.level as number) === 3 ? "sub-nav-button nested" : "sub-nav-button"}
-                      key={subsection.id}
-                      onClick={() => chooseSubsection(active, subsection)}
-                      type="button"
-                    >
-                      {subsection.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </nav>
-
             {readingMode === "single" ? (
               <div className="content-panel">
                 <article className="article-card">
@@ -780,6 +974,7 @@ export function TrendExplorer() {
         </section>
 
         <p className="footer-note">内容同步自 {report.sourceName} · Markdown 为唯一事实源 · GitHub Pages 静态发布</p>
+        </div>
       </div>
       {showBackToTop && (
         <button className="back-to-top" type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="返回页面顶部">
@@ -788,8 +983,4 @@ export function TrendExplorer() {
       )}
     </main>
   );
-}
-
-function Metric({ value, label }: { value: number; label: string }) {
-  return <article className="metric-card"><strong>{value}</strong><span>{label}</span></article>;
 }

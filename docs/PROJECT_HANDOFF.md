@@ -732,3 +732,32 @@ GitHub 官方文档：「Pages 在 **Free 账号仅支持公开仓库**」（转
 第 1、2 条来自 §14.8 的缩进事故，第 3 条来自 §14.8「一个 bug 修三处」的经验。三条均落在 `AGENTS.md` 的「验证纪律」与新增的「批量编辑纪律」两节。
 
 **P1 类残留（未处理，待决策）**：第八章移出后，公开内容源仍保留其他章节里的「讯飞自有能力」自述，例如 `L349` 的「讯飞 ASR（65+语种/98%准确率）与 TTS（x6-Pro 超拟人合成等）」、`L306` 的能力货架罗列、`L1447`／`L1474`／`L1505`／`L1536` 等 13 处「与讯飞现有能力的关系」条目，以及 `L1227` 引用的内部材料名《AI助手Lite版迭代方向研究》和 `L1228` 的「待内部确认」标记。这些属于**分析内容**而非章节结构，改动会改变报告判断表述，故未在本次授权范围内处理。
+
+### 14.10 已落地：第八章复原 + 「三、重点摘要」更名 + 常驻左栏与分类筛选 + 删首屏数据卡片（2026-09-15）
+
+这是 §14.9 的**回退与扩展**。§14.9 把「八、公司内部进展」整章移出公开内容源以关闭全部 P0；本轮按负责人决策**整章复原并公开推送**，同时补上导师反馈的「导航、分类筛选」基本功能，并把「三、本期重点摘要」更名为「三、重点摘要」。
+
+**内容源**
+
+- 从 `b5062db^` 逐字取回第八章 557 行（`**能力总览**` 表、16 个 `###` 能力域、45 个 `####` 能力卡片与 `## 在研方向`），插到文末；先 `git show b5062db^:content/行业动态追踪.md` 落盘比对，区块与基准**逐字一致**；
+- 「二、总览」收束段后补回 `→ 对应章节：八、公司内部进展`（其前补一空行，满足「总览正文以空行分块」约束）；
+- 「三、本期重点摘要」→「三、重点摘要」（标题 1 处 + 正文自指 1 处）；
+- 一级章节由七个回到八个。
+
+**依赖同步（8 文件）**：`scripts/sync-content.mjs`（`section.title` 判定）→ `tests/governance.test.mjs`（`requiredSections` 补回第八章 + 该章四条存在性断言；两处章节切分正则）→ `tests/content-sync.test.mjs`（断言回到 8 sections、`numeral:"八"`、`id:"section-8"`、`title:"重点摘要"`、InternalProgress 内容，保留 A 类脱敏反向断言）→ `docs/CONTENT_SCHEMA.md`（§2／§3／§5／§7）→ `docs/END_TO_END_CONTRACT.md`／`docs/ACCEPTANCE_CHECKLIST.md`／`docs/WEEKLY_PUBLISH_RUNBOOK.md` → `AGENTS.md`／`README.md`／`docs/INFORMATION_SOURCES_AND_CONTENT_DIRECTION.md`。
+
+**页面层（`app/trend-explorer.tsx` + `app/globals.css`）**
+
+| 位置 | 改动 |
+|---|---|
+| 常驻左栏 | 新增 `site-rail`：板块导航 5 项 + 章节导航 8 章 + 分类筛选 5 下拉；`IntersectionObserver` 跟随滚动高亮（`railTargets`／`railSection`） |
+| 分类筛选 | 按 终端／能力／竞对／归因／层级 筛选章节内条目；筛选生效自动展开分组（`filterDetailsRef`） |
+| 首屏 | 删除 `metric-grid`／四个 `Metric` 卡片与对应样式；保留标题区与「浏览全部章节」入口 |
+| 布局 | `dashboard` 外包 `shell-body`（两栏 grid）；`explorer` 去重只留 `content-panel`；`.dashboard` 改 `min-width:0;padding:0` |
+| 窄视口 | `@media (max-width:860px)` 左栏 `display:contents` + 章节吸顶 |
+
+**安全影响（负责人已明确接受）**：复原后 §14.9 关闭的 P0 敞口**重新打开**——`vcn=`（4）、`Multi_lzh`（1）、`蔚来`（1）、`待内部确认`（17）随第八章重新进入公开内容源与线上产物；A 类三项脱敏（`接口地址从略`×5、`已知性能边界`×1）仍在章内。本次决策为「复原并公开推送」。
+
+**验证**：`sync-content`（8 sections / 19 highlights）→ `node --test` **9/9 通过** → `eslint` → `tsc --noEmit` → `vite build`（`index-Dae2mChs.js` 847.88 kB、`index-B5iKioX9.css` 26.91 kB）全部通过；无头 Edge + CDP 实机核对 **16/16**（顶部卡片 0、左栏 3 区块、8 章导航、5 板块锚点、5 筛选下拉、宽／窄视口无横向溢出、下滚左栏吸附、第八章 groups=2／categories=16／cards=45、窄视口左栏转普通区块）。
+
+**本轮工作区另含一次 2026-09-15 日更内容轮次**（7 条详细条目 + 7 行重点摘要，纯插入、无敏感字样；经逐行扫描 `vcn=`／`xfyun`／`aipaasapi`／`讯飞`／`待内部确认` 等标记均为 0），与本轮结构调整同批上线，明细见 `CHANGELOG.md` 的「待发布／内容更新（2026-09-15）」。

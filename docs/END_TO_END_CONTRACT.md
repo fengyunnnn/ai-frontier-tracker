@@ -142,7 +142,7 @@ ai-frontier-tracker
 | UI 逻辑字段 | 当前/目标数据载体 | 必填 | 缺失回退 | 缺失处理 |
 |---|---|---:|---|---|
 | `section_id` | `section.id` | 是 | 无 | 阻断生成 |
-| `section_numeral` | `section.numeral` | 是 | 无 | 固定七章校验失败即阻断 |
+| `section_numeral` | `section.numeral` | 是 | 无 | 固定八章校验失败即阻断 |
 | `section_title` | `section.title` | 是 | 无 | 固定名称校验失败即阻断 |
 | `chapter_summary` | 目标为 `section.summary`；当前不存在 | 目标必填 | 当前可临时显示“进入本章查看完整内容与证据。” | 已知结构缺口，阶段 2 决策 |
 | `subsections` | `section.subsections` | 否 | 空列表 | 允许无二/三级标题 |
@@ -173,11 +173,12 @@ ai-frontier-tracker
 ```markdown
 一、文档说明
 二、总览
-三、本期重点摘要
+三、重点摘要
 四、行业动态
 五、产品动态
 六、技术革新
 七、竞品与标杆公司动态
+八、公司内部进展
 ```
 
 一级章节名称、顺序和唯一性属于结构硬规则。
@@ -309,7 +310,7 @@ ai-frontier-tracker
 
 | 字段 | 类型 | 必填 | 作用 |
 |---|---|---:|---|
-| `highlight_eligible` | 布尔值 + 理由 | 是 | 决定是否进入本期重点摘要，不改变详细条目是否保留 |
+| `highlight_eligible` | 布尔值 + 理由 | 是 | 决定是否进入重点摘要，不改变详细条目是否保留 |
 | `duplicate_action` | `新增`/`更新既有条目`/`仅补来源`/`排除重复` | 是 | 决定增量写入方式，防止重复事件 |
 
 ### 5.3 章节级 4 个字段
