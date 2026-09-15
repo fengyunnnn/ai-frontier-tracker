@@ -21,26 +21,38 @@ const searchScopes = [
 
 type SearchScopeId = (typeof searchScopes)[number]["id"];
 
-function escapeHtml(content: string) {
-  return content
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
+/**
+ * 把一章 Markdown 渲染成 HTML，并给标题挂上内容锚点。
+ *
+ * 关键约束：标题必须先剥掉源码里显式的 `{#anchor}` 标记，再交给 marked 当作普通
+ * Markdown 标题解析，最后按文档顺序回填 id。绝不能把标题直接换成裸 `<h2>` 标签——
+ * 裸标签会开启 CommonMark 的 HTML block，把它后面直到空行为止的所有内容（列表、
+ * 表格、正文）整段吞成纯文本：这正是「文档说明分点不换行」「总览挤成一坨」
+ * 「本期重点摘要表格显示成一片竖线」的共同原因。
+ */
 function renderMarkdown(section: Section) {
+  const body = section.body.replace(
+    /^(#{2,4}\s+.+?)\s+\{#[a-z0-9][a-z0-9-]*\}\s*$/gm,
+    "$1",
+  );
   let headingIndex = 0;
-  const contentWithAnchors = section.body.replace(
-    /^(#{2,4})\s+(.+?)(?:\s+\{#[a-z0-9][a-z0-9-]*\})?\s*$/gm,
-    (line, markers: string, title: string) => {
+  const html = marked.parse(body, { gfm: true, breaks: true }) as string;
+  return html
+    .replace(/<(h[2-4])[^>]*>/g, (match, tag: string) => {
       const contentHeading = section.contentHeadings[headingIndex];
       headingIndex += 1;
-      if (!contentHeading) return line;
-      const level = markers.length;
-      return `<h${level} id="${contentHeading.id}" tabindex="-1">${escapeHtml(title.trim())}</h${level}>`;
-    },
-  );
-  return marked.parse(contentWithAnchors, { gfm: true, breaks: true }) as string;
+      if (!contentHeading) return match;
+      return `<${tag} id="${contentHeading.id}" tabindex="-1">`;
+    })
+    // 总览的四个分层标记（【能力层】…）渲染为分层小标题，避免整段正文被读成一块
+    .replace(/<p>【([^】<]+)】([^<]*)<\/p>/g, (_match, badge: string, rest: string) => (
+      `<h3 class="overview-layer">`
+      + `<span class="overview-layer-badge">${badge}</span>`
+      + (rest.trim() ? `<span class="overview-layer-title">${rest.trim()}</span>` : "")
+      + `</h3>`
+    ))
+    // 「→ 对应章节：X」渲染为章节指向标记；箭头由 CSS 提供
+    .replace(/<p>→\s*对应章节：(.+?)<\/p>/g, '<p class="overview-ref">对应章节：$1</p>');
 }
 
 function cleanMarkdownLine(line: string) {
@@ -53,54 +65,9 @@ function cleanMarkdownLine(line: string) {
     .trim();
 }
 
-type InternalCapability = { id: string; title: string; body: string };
-type InternalCategory = { id: string; title: string; body: string; capabilities: InternalCapability[] };
-type InternalGroup = { id: string; title: string; body: string; categories: InternalCategory[]; capabilities: InternalCapability[] };
-
-function parseInternalProgress(section: Section) {
-  const result: { preamble: string; groups: InternalGroup[] } = { preamble: "", groups: [] };
-  let group: InternalGroup | undefined;
-  let category: InternalCategory | undefined;
-  let capability: InternalCapability | undefined;
-  let headingIndex = 0;
-  let buffer: string[] = [];
-
-  const flush = () => {
-    const body = buffer.join("\n").trim();
-    if (capability) capability.body = body;
-    else if (category) category.body = body;
-    else if (group) group.body = body;
-    else result.preamble = body;
-    buffer = [];
-  };
-
-  section.body.split("\n").forEach((line) => {
-    const headingMatch = line.match(/^(#{2,4})\s+(.+?)(?:\s+\{#[a-z0-9][a-z0-9-]*\})?\s*$/);
-    if (!headingMatch) {
-      buffer.push(line);
-      return;
-    }
-    flush();
-    const heading = section.contentHeadings[headingIndex];
-    headingIndex += 1;
-    if (!heading) return;
-    if (heading.level === 2) {
-      group = { id: heading.id, title: heading.title, body: "", categories: [], capabilities: [] };
-      result.groups.push(group);
-      category = undefined;
-      capability = undefined;
-    } else if (heading.level === 3 && group) {
-      category = { id: heading.id, title: heading.title, body: "", capabilities: [] };
-      group.categories.push(category);
-      capability = undefined;
-    } else if (heading.level === 4 && group) {
-      capability = { id: heading.id, title: heading.title, body: "" };
-      if (category) category.capabilities.push(capability);
-      else group.capabilities.push(capability);
-    }
-  });
-  flush();
-  return result;
+/** 周期区间在 Tab 上压成短标签（2026-09-14—2026-09-20 → 09-14—09-20）更易扫读。 */
+function shortPeriod(period: string) {
+  return period.replace(/^\d{4}-/, "").replace(/—\d{4}-/, "—");
 }
 
 function MarkdownFragment({ content }: { content: string }) {
@@ -164,54 +131,13 @@ function IntelligenceReport({ section }: { section: Section }) {
   );
 }
 
-function InternalProgressReport({ section }: { section: Section }) {
-  const internal = useMemo(() => parseInternalProgress(section), [section]);
-  const renderCapability = (item: InternalCapability) => (
-    <details className="internal-capability-card" id={item.id} key={item.id}>
-      <summary>
-        <span>{item.title}</span>
-        <small>存量材料 · 待内部确认</small>
-      </summary>
-      <div className="internal-capability-body">
-        <MarkdownFragment content={item.body} />
-      </div>
-    </details>
-  );
-
-  return (
-    <div className="markdown-body internal-progress-report">
-      <MarkdownFragment content={internal.preamble} />
-      {internal.groups.map((group) => (
-        <section className="internal-progress-group" key={group.id}>
-          <h2 id={group.id} tabIndex={-1}>{group.title}</h2>
-          <MarkdownFragment content={group.body} />
-          {group.capabilities.length > 0 && (
-            <div className="internal-capability-grid">{group.capabilities.map(renderCapability)}</div>
-          )}
-          {group.categories.map((item) => (
-            <section className="internal-category" key={item.id}>
-              <div className="internal-category-heading">
-                <h3 id={item.id} tabIndex={-1}>{item.title}</h3>
-                <span>{item.capabilities.length} 项能力</span>
-              </div>
-              <MarkdownFragment content={item.body} />
-              <div className="internal-capability-grid">{item.capabilities.map(renderCapability)}</div>
-            </section>
-          ))}
-        </section>
-      ))}
-    </div>
-  );
-}
-
 function SectionBody({ section }: { section: Section }) {
-  if (section.title === "公司内部进展") return <InternalProgressReport section={section} />;
   if (["行业动态", "产品动态", "技术革新", "竞品与标杆公司动态"].includes(section.title)) {
     return <IntelligenceReport section={section} />;
   }
   return (
     <div
-      className="markdown-body"
+      className={section.title === "总览" ? "markdown-body markdown-overview" : "markdown-body"}
       dangerouslySetInnerHTML={{ __html: renderMarkdown(section) }}
     />
   );
@@ -238,6 +164,7 @@ export function TrendExplorer() {
   const [attributionFilter, setAttributionFilter] = useState("all");
   const [levelFilter, setLevelFilter] = useState("all");
   const [readingMode, setReadingMode] = useState<ReadingMode>("single");
+  const [highlightPeriod, setHighlightPeriod] = useState("");
   const [readingProgress, setReadingProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -375,14 +302,17 @@ export function TrendExplorer() {
   const highlightGroups = useMemo(() => {
     const groups = new Map<string, Array<(typeof report.highlights)[number]>>();
     report.highlights.forEach((item) => {
-      const group = groups.get(item.date) ?? [];
+      const group = groups.get(item.period) ?? [];
       group.push(item);
-      groups.set(item.date, group);
+      groups.set(item.period, group);
     });
     return [...groups.entries()]
       .sort(([left], [right]) => right.localeCompare(left))
-      .map(([date, items]) => ({ date, items }));
+      .map(([period, items]) => ({ period, items }));
   }, []);
+
+  const activeHighlightGroup = highlightGroups.find((group) => group.period === highlightPeriod)
+    ?? highlightGroups[0];
 
   const facetOptions = useMemo(() => {
     const unique = (values: readonly (readonly string[])[]) => [...new Set(values.flat())].sort(
@@ -509,53 +439,60 @@ export function TrendExplorer() {
           <div className="section-heading-row">
             <div>
               <h2 className="section-title">本期值得优先关注</h2>
-              <p className="section-description">先扫读影响判断，按需展开来源并定位到完整报告。</p>
+              <p className="section-description">先按周期切换，再扫读影响判断，按需展开来源并定位到完整报告。</p>
             </div>
           </div>
-          <div className="highlight-groups">
+          <div className="highlight-tabs" aria-label="按周期切换本期重点">
             {highlightGroups.map((group) => (
-              <div className="highlight-date-group" key={group.date}>
-                <div className="highlight-date-heading">
-                  <time dateTime={group.date}>{group.date}</time>
-                  <span>{group.items.length} 条</span>
-                </div>
-                <div className="highlight-grid">
-                  {group.items.map((item) => {
-                    return (
-                    <article className="highlight-card" key={`${item.event}-${item.date}`}>
-                      <div className="highlight-meta">
-                        <span>{item.type}</span>
-                        <span>{item.source}</span>
-                        <time dateTime={item.date}>{item.date}</time>
-                      </div>
-                      <a
-                        className="highlight-link"
-                        href={`#${item.detailId}`}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          const target = findHighlightTarget(item.event, item.detailId);
-                          if (target.contentHeading) {
-                            chooseContentHeading(target.section, target.contentHeading);
-                          } else {
-                            chooseSection(target.section);
-                          }
-                        }}
-                      >
-                        <h3>{item.event}</h3>
-                        <p className="highlight-impact">{item.impact}</p>
-                        <span className="highlight-cta">查看分析 <span aria-hidden="true">→</span></span>
-                      </a>
-                      <div className="tag-row" aria-label="关键词">
-                        {item.keywords.split(/[、，,]/).slice(0, 2).map((keyword) => (
-                          <span className="tag" key={keyword}>{keyword.trim()}</span>
-                        ))}
-                      </div>
-                    </article>
-                  )})}
-                </div>
-              </div>
+              <button
+                className={group.period === activeHighlightGroup?.period ? "active" : ""}
+                key={group.period}
+                type="button"
+                title={group.period}
+                aria-label={`${group.period}，${group.items.length} 条`}
+                aria-pressed={group.period === activeHighlightGroup?.period}
+                onClick={() => setHighlightPeriod(group.period)}
+              >
+                <span>{shortPeriod(group.period)}</span>
+                <small>{group.items.length}</small>
+              </button>
             ))}
           </div>
+          {activeHighlightGroup && (
+            <div className="highlight-grid">
+              {activeHighlightGroup.items.map((item) => (
+                <article className="highlight-card" key={`${item.event}-${item.date}`}>
+                  <div className="highlight-meta">
+                    <span>{item.type}</span>
+                    <span>{item.source}</span>
+                    <time dateTime={item.date}>{item.date}</time>
+                  </div>
+                  <a
+                    className="highlight-link"
+                    href={`#${item.detailId}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      const target = findHighlightTarget(item.event, item.detailId);
+                      if (target.contentHeading) {
+                        chooseContentHeading(target.section, target.contentHeading);
+                      } else {
+                        chooseSection(target.section);
+                      }
+                    }}
+                  >
+                    <h3>{item.event}</h3>
+                    <p className="highlight-impact">{item.impact}</p>
+                    <span className="highlight-cta">查看分析 <span aria-hidden="true">→</span></span>
+                  </a>
+                  <div className="tag-row" aria-label="关键词">
+                    {item.keywords.split(/[、，,]/).slice(0, 2).map((keyword) => (
+                      <span className="tag" key={keyword}>{keyword.trim()}</span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         <section id="core-signals">
@@ -786,7 +723,7 @@ export function TrendExplorer() {
                   <span>本章目录</span>
                   {active.subsections.map((subsection) => (
                     <button
-                      className={subsection.level === 3 ? "sub-nav-button nested" : "sub-nav-button"}
+                      className={(subsection.level as number) === 3 ? "sub-nav-button nested" : "sub-nav-button"}
                       key={subsection.id}
                       onClick={() => chooseSubsection(active, subsection)}
                       type="button"

@@ -17,10 +17,11 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
   assert.match(generated, /"id": "speech-agent-arena"/);
   assert.match(generated, /"title": "文档目的"/);
   assert.match(generated, /"title": "2026-08-24—2026-08-30"/);
-  assert.match(generated, /"title": "已有技术能力"/);
-  assert.match(generated, /\*\*能力总览\*\*/);
-  assert.match(generated, /"title": "超拟人合成"/);
-  assert.match(generated, /待内部确认/);
+  assert.match(generated, /"numeral": "七"/);
+  // 2026-09-14：第八章「公司内部进展」已移出公开内容源（见 docs/CONTENT_SCHEMA.md §7）。
+  // 公开构建产物不得再出现内部能力明细或内部端点/错误码/压测标识。
+  assert.doesNotMatch(generated, /公司内部进展/);
+  assert.doesNotMatch(generated, /xf-yun|xfyun\.cn|aipaasapi|内存超64GB|10909/);
   assert.match(generated, /Level 1｜生存层：准入与内容闭环/);
   assert.match(generated, /Level 2｜竞争层：自然交互与真实场景/);
   assert.match(generated, /Level 3｜未来层：任务编排与跨端智能/);

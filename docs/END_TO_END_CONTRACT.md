@@ -142,7 +142,7 @@ ai-frontier-tracker
 | UI 逻辑字段 | 当前/目标数据载体 | 必填 | 缺失回退 | 缺失处理 |
 |---|---|---:|---|---|
 | `section_id` | `section.id` | 是 | 无 | 阻断生成 |
-| `section_numeral` | `section.numeral` | 是 | 无 | 固定八章校验失败即阻断 |
+| `section_numeral` | `section.numeral` | 是 | 无 | 固定七章校验失败即阻断 |
 | `section_title` | `section.title` | 是 | 无 | 固定名称校验失败即阻断 |
 | `chapter_summary` | 目标为 `section.summary`；当前不存在 | 目标必填 | 当前可临时显示“进入本章查看完整内容与证据。” | 已知结构缺口，阶段 2 决策 |
 | `subsections` | `section.subsections` | 否 | 空列表 | 允许无二/三级标题 |
@@ -178,7 +178,6 @@ ai-frontier-tracker
 五、产品动态
 六、技术革新
 七、竞品与标杆公司动态
-八、公司内部进展
 ```
 
 一级章节名称、顺序和唯一性属于结构硬规则。

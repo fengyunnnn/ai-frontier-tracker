@@ -185,7 +185,15 @@ for (let index = 0; index < overviewLines.length; index += 1) {
 
 const highlights = [];
 const summaryBody = sections.find((section) => section.title === "本期重点摘要")?.body ?? "";
+// 表格按 `## YYYY-MM-DD—YYYY-MM-DD` 分周；把周区间带给每条 highlight，
+// 页面「本期值得优先关注」据此做周期切换 Tab，而不是把 8 个日期组纵向堆起来。
+let highlightPeriod = "";
 for (const line of summaryBody.split("\n")) {
+  const periodMatch = line.match(/^##\s+(\d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2})\s*$/);
+  if (periodMatch) {
+    highlightPeriod = periodMatch[1];
+    continue;
+  }
   if (!line.startsWith("|") || /^\|[-|\s]+\|$/.test(line) || line.includes("| 事件 |")) continue;
   const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
   if (cells.length >= 6) {
@@ -197,6 +205,7 @@ for (const line of summaryBody.split("\n")) {
       impact: cells[3],
       source: cells[4],
       date: cells[5],
+      period: highlightPeriod,
       detailId,
     });
   }
