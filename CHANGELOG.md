@@ -11,11 +11,13 @@
 - 日期使用北京时间，格式为 `YYYY-MM-DD`；
 - 只有 GitHub Actions 成功、Pages 部署完成且线上冒烟通过后，才记录为“已发布”；已完成但尚未上线的改动记录为“已完成、未上线”，不填写尚未发生的发布日期。
 
-## 待发布
+## V1.6（2026-09-15）
 
-### 内容更新（2026-09-15）——已完成、未上线
+本次发布合并 2026-09-15 的日更内容轮次、第八章复原与「三、重点摘要」更名、以及常驻左栏与分类筛选等页面能力更新。GitHub Actions **run #12** 成功，Pages 部署时间 `2026-09-15T02:47:55Z`（提交 `1a414ae`，与 V1.5 的 `46c917f` 之间无中间推送）。
 
-本轮为 2026-09-15 的日更内容轮次。改动已在本地写入事实源并通过完整门禁，**尚未提交、推送**，因此不填写发布日期。
+上线前门禁全绿：`sync-content`（8 sections / 19 highlights）→ `node --test` **9/9 通过** → `eslint` → `tsc --noEmit` → `vite build`；上线后以线上产物实测复核（见「上线实测」）。
+
+### 内容更新（2026-09-15）
 
 - **新增 7 条详细条目 + 7 行重点摘要**（`content/行业动态追踪.md`）：
   - 「四、行业动态」新建 `## 2026-09-14—2026-09-20` 周期，收录 2 条：商务部等八部门《促进智能家居消费行动方案》（部委文件首次把“方言识别”写入适老化设计口径，并将制定智能家居互联互通强制性国家标准）、GB/T 47746—2026《顾客联络服务 人工与智能客户服务协同要求》（“人工入口不得隐藏”“人机切换不得重复询问”成为可检查口径）；
@@ -27,22 +29,27 @@
 - **归属待确认**：Apple Watch Audio Intelligence 条目暂归「七、竞品与标杆公司动态」（主体为 Apple 产品动作）；若按隐私／法律议题定位，可平移至「四、行业动态」，正文不变；
 - **影响范围**：本内容轮次为**纯插入**（该轮事实源 0 行删除、144 行新增）；锚点无重复，重点摘要引用全部可解析，`归因` 字段全部落在允许枚举内，CRLF 保持一致；
 - **门禁**：`sync-content`（8 sections / 19 highlights）→ `node --test` **9/9 通过** → `eslint` → `tsc --noEmit` → `vite build` 全部通过（`dist/assets/index-Dae2mChs.js` 847.88 kB、`index-B5iKioX9.css` 26.91 kB，属已知非阻断大包警告）；
-- **待办（独立问题，不在本轮范围）**：git 历史中仍保留第八章原文与脱敏前的内部端点表述，属仓库历史层敞口，需单独处理。
+- **未处理（待决策，独立问题）**：git 历史中仍保留第八章原文与脱敏前的内部端点表述，属仓库历史层敞口，需单独处理。
 
-### 内容结构调整（2026-09-15）——已完成、未上线
+### 内容结构调整（2026-09-15）
 
 - **复原「八、公司内部进展」整章**（`content/行业动态追踪.md`）：按 `b5062db^` 逐字取回 557 行（`**能力总览**` 表、16 个 `###` 能力域、45 个 `####` 能力卡片与 `## 在研方向`），并在「二、总览」收束段后补回 `→ 对应章节：八、公司内部进展` 归属标记；一级章节由七个回到八个，`sync-content` 切分为 **8 sections**；
 - **「三、本期重点摘要」更名为「三、重点摘要」**：标题与正文自指各 1 处；`scripts/sync-content.mjs`、`tests/governance.test.mjs`、`tests/content-sync.test.mjs`、`docs/CONTENT_SCHEMA.md`、`docs/END_TO_END_CONTRACT.md`、`docs/ACCEPTANCE_CHECKLIST.md`、`docs/WEEKLY_PUBLISH_RUNBOOK.md`、`AGENTS.md`、`README.md`、`app/trend-explorer.tsx` 同步；
 - **依赖同步**：`tests/governance.test.mjs` 的 `requiredSections` 补回「八、公司内部进展」并新增该章四条存在性断言；`tests/content-sync.test.mjs` 断言回到 8 sections（`numeral:"八"`、`id:"section-8"`、`title:"重点摘要"`）；`app/trend-explorer.tsx` 复原 `InternalProgressReport`／`parseInternalProgress` 与 `SectionBody` 分支；`app/globals.css` 复原 19 条 `.internal-*` 规则（花括号配平 270/270）；
 - **安全影响（负责人已确认并接受）**：复原后 V1.5 关闭的第八章 P0 敞口**重新打开**——`vcn=`（4 处）、`Multi_lzh`（1）、`蔚来`（1）、`待内部确认`（17）等内部表述再次进入公开内容源与线上产物；A 类三项脱敏（`接口地址从略`×5、`已知性能边界`×1）仍保留在章内。本次决策为「复原并公开推送」。
 
-### 页面能力更新（2026-09-15）——已完成、未上线
+### 页面能力更新（2026-09-15）
 
 - **新增常驻左侧导航栏（`site-rail`）**：`app/trend-explorer.tsx` 新增 `railTargets` 与 `railSection`，用 `IntersectionObserver` 跟随滚动高亮当前章节；左栏含「板块导航」5 项、章节导航 8 章、以及「分类筛选」5 个下拉；宽视口 `position: sticky` 常驻，窄视口（≤860px）以 `display: contents` 退化为普通区块、章节标题吸顶；
 - **新增分类筛选**：按终端／能力／竞对／归因／层级 5 个维度筛选章节内条目；筛选生效时自动展开对应分组（`filterDetailsRef`）；
 - **删除首屏四个数据卡片**：移除 `metric-grid`／`Metric` 组件与 `.metric-grid`／`.metric-card` 样式，保留标题区与「浏览全部章节」入口；
 - **无头 Edge 实机核对 16/16 通过**：顶部卡片数为 0、左栏常驻 3 区块、章节导航 8 章、板块锚点 5 个、筛选下拉 5 个、宽／窄视口均无横向溢出、下滚左栏仍吸附、第八章渲染（groups=2／categories=16／cards=45）、窄视口左栏转普通区块且导航换行不裁切。
 
+### 上线实测（2026-09-15）
+
+- 线上首页 `https://fengyunnnn.github.io/ai-frontier-tracker/` 的 `index.html` 已指向新产物 `assets/index-5SHDGMU6.js`（847,882 字节）与 `assets/index-B5iKioX9.css`；
+- 线上产物内容核对：`公司内部进展`×3、`能力总览`×1、`在研方向`×3、`section-8`×82（第八章已复原）；`本期重点摘要`=0、`重点摘要`×5（更名已生效）；`metric-grid`=0（首屏卡片已删）；`site-rail`×1、`rail-link`×3、`rail-filters`×1（左栏与筛选已上线）；本轮新增条目锚点 `smart-home-consumption-plan`／`steerduplex`／`doubao-mobile-assistant-saep`／`tencent-video-harmonyos-a2a` 各 ×6；
+- 第八章复原后内部串重新出现（`vcn=`×4、`Multi_lzh`×1、`蔚来`×1、`待内部确认`×21），与「复原并公开推送」的决策一致。
 ## V1.5（2026-09-15）
 
 本次发布合并了 2026-09-14 的页面层修复、内容调整与「第八章移出公开内容源」三组改动。GitHub Actions **run #10** 成功，Pages 部署时间 `2026-09-15T01:53:30Z`（提交 `b5062db`，与 V1.4 的 `24bf403` 之间无中间推送）。
