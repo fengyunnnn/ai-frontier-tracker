@@ -4,7 +4,7 @@ export const report = {
   "subtitle": "把外部变化转化为可核验的行业判断、平台能力输入与产品验证建议",
   "coverage": "2026年08月01日—2026年09月14日",
   "sourceName": "行业动态追踪.md",
-  "sourceUpdatedAt": "2026-09-15T08:40:47.380Z",
+  "sourceUpdatedAt": "2026-09-17T10:17:21.444Z",
   "directions": [
     {
       "index": "1",

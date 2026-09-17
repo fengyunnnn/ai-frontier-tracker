@@ -187,3 +187,59 @@ test("总览正文以空行分块，避免整章被渲染成一整段", async ()
   // 页面就退回「挤成一坨」。补一行空行即可。
   assert.deepEqual(unseparated, [], `总览存在未用空行分隔的相邻行：\n${unseparated.join("\n")}`);
 });
+test("时间字段在页头与正文之间保持同步", async () => {
+  // 规则见 docs/CONTENT_SCHEMA.md §4.1：页面顶部与正文共有 5 处时间，任何一次内容
+  // 更新都必须让它们互相一致。漏改的典型症状是「页头写着刚更新、正文还停在旧日期」，
+  // 或「覆盖时间已推进、本期周期还留在上一周」。下面把不变量固化为断言。
+  const [markdown, generated] = await Promise.all([
+    readProjectFile("content/行业动态追踪.md"),
+    readProjectFile("app/content.generated.ts"),
+  ]);
+  const source = markdown.replace(/\r\n/g, "\n");
+
+  // 1) 《覆盖时间》正文必须存在、格式规范、起止有序。
+  const coverage = source.match(
+    /^## 覆盖时间\n(\d{4})年(\d{2})月(\d{2})日—(\d{4})年(\d{2})月(\d{2})日$/m,
+  );
+  assert.ok(coverage, "《覆盖时间》正文必须是 YYYY年MM月DD日—YYYY年MM月DD日（月日补零）");
+  const [, startYear, startMonth, startDay, endYear, endMonth, endDay] = coverage;
+  const coverageStart = `${startYear}-${startMonth}-${startDay}`;
+  const coverageEnd = `${endYear}-${endMonth}-${endDay}`;
+  assert.ok(coverageStart <= coverageEnd, `覆盖时间起始日不得晚于结束日：${coverageStart} > ${coverageEnd}`);
+
+  // 2) 页头「观察周期：」渲染的是 report.coverage，必须与《覆盖时间》逐字相同。
+  //    sync-content.mjs 取的是内容源里第一个中文长日期区间，所以第 1 项必须是它。
+  assert.match(
+    generated,
+    new RegExp(`"coverage": "${startYear}年${startMonth}月${startDay}日—${endYear}年${endMonth}月${endDay}日"`),
+    "页头「观察周期」必须等于《覆盖时间》正文",
+  );
+
+  // 3) 总览首个「截至」日期必须等于覆盖时间结束日（该处月日不补零）。
+  const asOf = source.match(/^截至(\d{4})年(\d{1,2})月(\d{1,2})日/m);
+  assert.ok(asOf, "总览必须以「截至YYYY年M月D日…」开头");
+  const asOfDate = `${asOf[1]}-${String(asOf[2]).padStart(2, "0")}-${String(asOf[3]).padStart(2, "0")}`;
+  assert.equal(asOfDate, coverageEnd, `总览「截至」日期（${asOfDate}）必须等于覆盖时间结束日（${coverageEnd}）`);
+
+  // 4) 「本期周期：A—B」必须是覆盖时间结束日所在的自然周（周一—周日）。
+  const period = source.match(/^本期周期：(\d{4}-\d{2}-\d{2})—(\d{4}-\d{2}-\d{2})$/m);
+  assert.ok(period, "重点摘要必须声明「本期周期：YYYY-MM-DD—YYYY-MM-DD」");
+  const [, periodStart, periodEnd] = period;
+  const weekStart = new Date(`${coverageEnd}T00:00:00Z`);
+  weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  assert.equal(weekStart.toISOString().slice(0, 10), periodStart,
+    `本期周期必须从覆盖时间结束日（${coverageEnd}）所在自然周的周一开始`);
+  assert.ok(periodStart <= coverageEnd && coverageEnd <= periodEnd,
+    `覆盖时间结束日（${coverageEnd}）必须落在本期周期（${periodStart}—${periodEnd}）内`);
+
+  // 5) 覆盖时间必须覆盖正文中出现的最新周期，否则就是「新增了一周内容但忘了改时间」。
+  const periodRanges = [...source.matchAll(/^## (\d{4}-\d{2}-\d{2})—(\d{4}-\d{2}-\d{2})$/gm)]
+    .map(([, from, to]) => [from, to]);
+  assert.ok(periodRanges.length > 0, "正文必须至少存在一个周期标题");
+  const [latestStart] = periodRanges.reduce((latest, current) => (current[0] > latest[0] ? current : latest));
+  assert.ok(coverageEnd >= latestStart,
+    `覆盖时间结束日（${coverageEnd}）早于正文最新周期（${latestStart} 起）：新增一周内容时请同步刷新时间字段`);
+
+  // 6) 「更新于」来自文件时间，不得手写进内容源。
+  assert.doesNotMatch(markdown, /更新于/, "内容源不得手写「更新于」");
+});
