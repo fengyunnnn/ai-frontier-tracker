@@ -33,12 +33,6 @@
 
 当前发布地址：`https://fengyunnnn.github.io/ai-frontier-tracker/`。
 
-> ⚠️ **迁移说明（2026-09-15 起）**：本仓库的公开历史中包含早期未脱敏文本，已决定**重建一个干净仓库**（`ai-frontier-tracker-public`）承载公开内容，旧仓库随后转为 **Archive**（只读、标注不再更新）。迁移完成后：
->
-> - 线上地址将由 `https://fengyunnnn.github.io/ai-frontier-tracker/` 变为新仓库对应的 Pages 地址，**上述旧链接将失效**；
-> - 仓库内容（Markdown 内容源、同步脚本、网页代码）保持一致，`main` 分支的提交历史不连续（新仓库为单次初始提交）；
-> - 迁移期间以本仓库 `CHANGELOG.md` 记录的实际状态为准。
-
 ## 版本记录
 
 网页能力的已发布内容、下一版本规划和趋势状态启用原则统一记录在 `CHANGELOG.md`。规划项在实际交付前保留在“待发布”区，完成部署后再填写正式版本号和发布日期。
