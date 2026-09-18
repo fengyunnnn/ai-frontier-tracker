@@ -66,9 +66,28 @@ const intelligenceTaxonomy = {
   ],
 };
 
+// 受控词表：标签取值的允许范围与别名/占位符登记（契约见 docs/CONTENT_SCHEMA.md §6.2）。
+const facetTaxonomy = JSON.parse(
+  await readFile(path.resolve(projectRoot, "content", "facet-taxonomy.json"), "utf8"),
+);
+
 const inferValues = (text, rules) => rules
   .filter(([, pattern]) => pattern.test(text))
   .map(([label]) => label);
+
+/**
+ * 标签取值归一：别名 → 规范值，占位符直接丢弃。
+ *
+ * 为什么必须在生成阶段做而不是留到页面匹配：页面与后续统计/分析都是精确字符串匹配，
+ * 同一条情报写成 `中屏` 还是 `家庭中屏` 会各自成为独立的筛选桶，选任一个都漏检另一批。
+ * 归一只改生成物，不改内容源——内容源的写法收敛是独立的一步。
+ */
+const normalizeFacetValues = (dimension, values) => {
+  const spec = facetTaxonomy.dimensions[dimension];
+  return [...new Set(values
+    .map((value) => spec.aliases[value] ?? value)
+    .filter((value) => !spec.placeholders.includes(value)))];
+};
 
 const parseIntelligenceMetadata = (body) => {
   const metadataLine = body.match(/^情报维度：(.+)$/m)?.[1];
@@ -160,9 +179,19 @@ for (const section of sections) {
       title: heading.title,
       body: parsed.body,
       summary: summarizeDetail(parsed.body),
-      terminals: parsed.metadata["终端"] ?? inferValues(searchable, intelligenceTaxonomy.terminals),
-      capabilities: parsed.metadata["能力"] ?? inferValues(searchable, intelligenceTaxonomy.capabilities),
-      competitors: parsed.metadata["竞对"] ?? inferValues(searchable, intelligenceTaxonomy.competitors),
+      terminals: normalizeFacetValues(
+        "terminals",
+        parsed.metadata["终端"] ?? inferValues(searchable, intelligenceTaxonomy.terminals),
+      ),
+      capabilities: normalizeFacetValues(
+        "capabilities",
+        parsed.metadata["能力"] ?? inferValues(searchable, intelligenceTaxonomy.capabilities),
+      ),
+      competitors: normalizeFacetValues(
+        "competitors",
+        parsed.metadata["竞对"] ?? inferValues(searchable, intelligenceTaxonomy.competitors),
+      ),
+      // 归因与层级是受枚举约束的封闭取值（tests/governance.test.mjs 用正则强校验），不做别名归一。
       attributions: parsed.metadata["归因"] ?? ["待归因"],
       level: parsed.metadata["层级"]?.[0] ?? "待分层",
     });

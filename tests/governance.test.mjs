@@ -243,3 +243,97 @@ test("时间字段在页头与正文之间保持同步", async () => {
   // 6) 「更新于」来自文件时间，不得手写进内容源。
   assert.doesNotMatch(markdown, /更新于/, "内容源不得手写「更新于」");
 });
+
+const facetDimensionByKey = {
+  终端: "terminals",
+  能力: "capabilities",
+  竞对: "competitors",
+  归因: "attributions",
+  层级: "levels",
+};
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+test("情报维度取值必须登记在受控词表内", async () => {
+  // 动机（2026-09-18 抽样诊断）：标签本身可以在词表允许范围内，只要写法不统一，
+  // 精确匹配的筛选就会漏检——`中屏` 与 `家庭中屏` 各自成一个桶。这里守住「新增取值
+  // 必须先登记」这一条：登记是可评审的动作，顺手写一个新写法不是。
+  // 契约与三类角色（canonical／aliases／placeholders）见 docs/CONTENT_SCHEMA.md §6.2。
+  const [markdown, taxonomyRaw] = await Promise.all([
+    readProjectFile("content/行业动态追踪.md"),
+    readProjectFile("content/facet-taxonomy.json"),
+  ]);
+  const taxonomy = JSON.parse(taxonomyRaw);
+
+  // 词表自洽：别名与占位符的目标必须是已登记的规范值，否则归一后会掉出词表外。
+  for (const [dimension, spec] of Object.entries(taxonomy.dimensions)) {
+    for (const [variant, canonical] of Object.entries(spec.aliases)) {
+      assert.ok(spec.canonical.includes(canonical),
+        `${dimension}：别名「${variant}」指向的规范值「${canonical}」未登记在 canonical 里`);
+      assert.ok(!spec.canonical.includes(variant),
+        `${dimension}：「${variant}」既在 canonical 又作为别名来源，角色冲突`);
+    }
+    for (const placeholder of spec.placeholders) {
+      assert.ok(!spec.canonical.includes(placeholder),
+        `${dimension}：占位符「${placeholder}」不是取值，不应同时登记为 canonical`);
+    }
+  }
+
+  const source = markdown.replace(/\r\n/g, "\n");
+  const metadataLines = source.match(/^情报维度：.+$/gm) ?? [];
+  assert.ok(metadataLines.length > 0, "内容源必须至少有一条 情报维度 行");
+
+  const unregistered = new Set();
+  for (const line of metadataLines) {
+    for (const group of line.replace(/^情报维度：/, "").split(/[；;]/)) {
+      const [key, valuePart] = group.split(/[=：:]/, 2).map((value) => value?.trim());
+      const dimension = facetDimensionByKey[key];
+      if (!dimension || !valuePart) continue;
+      const spec = taxonomy.dimensions[dimension];
+      const registered = new Set([
+        ...spec.canonical,
+        ...Object.keys(spec.aliases),
+        ...spec.placeholders,
+      ]);
+      for (const value of valuePart.split(/[、，,]/).map((item) => item.trim()).filter(Boolean)) {
+        if (!registered.has(value)) unregistered.add(`${key}=${value}`);
+      }
+    }
+  }
+
+  assert.deepEqual([...unregistered], [],
+    `以下标签取值未登记在 content/facet-taxonomy.json：${[...unregistered].join("、")}\n`
+    + "新增取值属于内容决策：请在词表里登记它的角色（canonical 还是某规范值的 aliases），"
+    + "并在 docs/CONTENT_SCHEMA.md §6.2 记录意图，不要直接改内容源绕过评审。");
+});
+
+test("生成物里的标签取值已完成别名归一", async () => {
+  // 与上一条互补：上一条查「内容源写了什么」，这一条查「下游拿到什么」。
+  // 归一若失效，页面会重新出现同义并列的筛选桶——这是回归时最先被看见的症状。
+  const [generated, taxonomyRaw] = await Promise.all([
+    readProjectFile("app/content.generated.ts"),
+    readProjectFile("content/facet-taxonomy.json"),
+  ]);
+  const taxonomy = JSON.parse(taxonomyRaw);
+
+  for (const [dimension, spec] of Object.entries(taxonomy.dimensions)) {
+    const shouldNotAppear = [...Object.keys(spec.aliases), ...spec.placeholders];
+    for (const value of shouldNotAppear) {
+      assert.doesNotMatch(generated, new RegExp(`^\\s*"${escapeRegExp(value)}",?$`, "m"),
+        `${dimension}：「${value}」应被归一或丢弃，不应作为标签值出现在生成物里`);
+    }
+  }
+
+  // 归一后的取值必须仍在词表内，避免把内容源里的登记项改成一个没人认得的写法。
+  for (const [dimension, spec] of Object.entries(taxonomy.dimensions)) {
+    const field = { terminals: "terminals", capabilities: "capabilities", competitors: "competitors" }[dimension];
+    if (!field) continue;
+    const values = [...generated.matchAll(new RegExp(`"${field}": \\[\\n([^\\]]*?)\\n\\s*\\]`, "g"))]
+      .flatMap(([, body]) => [...body.matchAll(/"([^"]+)"/g)].map(([, value]) => value));
+    assert.ok(values.length > 0, `${field} 在生成物里必须有取值`);
+    for (const value of new Set(values)) {
+      assert.ok(spec.canonical.includes(value),
+        `${dimension}：生成物里的「${value}」不在词表 canonical 内`);
+    }
+  }
+});

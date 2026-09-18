@@ -4,7 +4,7 @@ export const report = {
   "subtitle": "把外部变化转化为可核验的行业判断、平台能力输入与产品验证建议",
   "coverage": "2026年08月01日—2026年09月14日",
   "sourceName": "行业动态追踪.md",
-  "sourceUpdatedAt": "2026-09-17T10:17:21.444Z",
+  "sourceUpdatedAt": "2026-09-18T03:20:55.114Z",
   "directions": [
     {
       "index": "1",
@@ -628,7 +628,7 @@ export const report = {
           "terminals": [
             "家庭中枢",
             "电视大屏",
-            "中屏"
+            "家庭中屏"
           ],
           "capabilities": [
             "任务编排",
@@ -658,16 +658,14 @@ export const report = {
           "terminals": [
             "家庭中枢",
             "电视大屏",
-            "中屏"
+            "家庭中屏"
           ],
           "capabilities": [
             "声纹与身份",
             "多模态",
             "平台工程"
           ],
-          "competitors": [
-            "待确认"
-          ],
+          "competitors": [],
           "attributions": [
             "资源/商务问题",
             "体验问题"
@@ -996,7 +994,7 @@ export const report = {
             "平台工程"
           ],
           "competitors": [
-            "阿里/Qwen"
+            "阿里"
           ],
           "attributions": [
             "能力问题"
@@ -1043,7 +1041,7 @@ export const report = {
             "平台工程"
           ],
           "competitors": [
-            "阿里/CosyVoice"
+            "阿里"
           ],
           "attributions": [
             "资源/商务问题"
@@ -1322,7 +1320,7 @@ export const report = {
           "terminals": [
             "平台/API",
             "家庭中枢",
-            "中屏"
+            "家庭中屏"
           ],
           "capabilities": [
             "ASR",
@@ -1502,9 +1500,7 @@ export const report = {
             "TTS",
             "端侧与端云"
           ],
-          "competitors": [
-            "待确认"
-          ],
+          "competitors": [],
           "attributions": [
             "能力问题"
           ],
@@ -1547,7 +1543,7 @@ export const report = {
           "summary": "Vinci2：围绕连续第一视角视频流中的主动服务展开研究，并提出 EgoServe 评测基准和 EgoMemo 智能体。                                                  …",
           "terminals": [
             "家庭中枢",
-            "中屏"
+            "家庭中屏"
           ],
           "capabilities": [
             "多模态",
@@ -1798,12 +1794,12 @@ export const report = {
           "capabilities": [
             "语音Agent",
             "任务编排",
-            "记忆与个性化",
+            "个性化与记忆",
             "多模态",
             "端侧与端云"
           ],
           "competitors": [
-            "字节跳动/豆包"
+            "字节跳动"
           ],
           "attributions": [
             "能力问题",
@@ -1825,7 +1821,7 @@ export const report = {
           ],
           "capabilities": [
             "唤醒与声学",
-            "记忆与个性化",
+            "个性化与记忆",
             "平台工程"
           ],
           "competitors": [
@@ -2687,7 +2683,7 @@ export const report = {
       "terminals": [
         "家庭中枢",
         "电视大屏",
-        "中屏"
+        "家庭中屏"
       ],
       "capabilities": [
         "任务编排",
@@ -2717,16 +2713,14 @@ export const report = {
       "terminals": [
         "家庭中枢",
         "电视大屏",
-        "中屏"
+        "家庭中屏"
       ],
       "capabilities": [
         "声纹与身份",
         "多模态",
         "平台工程"
       ],
-      "competitors": [
-        "待确认"
-      ],
+      "competitors": [],
       "attributions": [
         "资源/商务问题",
         "体验问题"
@@ -2933,7 +2927,7 @@ export const report = {
         "平台工程"
       ],
       "competitors": [
-        "阿里/Qwen"
+        "阿里"
       ],
       "attributions": [
         "能力问题"
@@ -2980,7 +2974,7 @@ export const report = {
         "平台工程"
       ],
       "competitors": [
-        "阿里/CosyVoice"
+        "阿里"
       ],
       "attributions": [
         "资源/商务问题"
@@ -3117,7 +3111,7 @@ export const report = {
       "terminals": [
         "平台/API",
         "家庭中枢",
-        "中屏"
+        "家庭中屏"
       ],
       "capabilities": [
         "ASR",
@@ -3297,9 +3291,7 @@ export const report = {
         "TTS",
         "端侧与端云"
       ],
-      "competitors": [
-        "待确认"
-      ],
+      "competitors": [],
       "attributions": [
         "能力问题"
       ],
@@ -3342,7 +3334,7 @@ export const report = {
       "summary": "Vinci2：围绕连续第一视角视频流中的主动服务展开研究，并提出 EgoServe 评测基准和 EgoMemo 智能体。                                                  …",
       "terminals": [
         "家庭中枢",
-        "中屏"
+        "家庭中屏"
       ],
       "capabilities": [
         "多模态",
@@ -3426,12 +3418,12 @@ export const report = {
       "capabilities": [
         "语音Agent",
         "任务编排",
-        "记忆与个性化",
+        "个性化与记忆",
         "多模态",
         "端侧与端云"
       ],
       "competitors": [
-        "字节跳动/豆包"
+        "字节跳动"
       ],
       "attributions": [
         "能力问题",
@@ -3453,7 +3445,7 @@ export const report = {
       ],
       "capabilities": [
         "唤醒与声学",
-        "记忆与个性化",
+        "个性化与记忆",
         "平台工程"
       ],
       "competitors": [

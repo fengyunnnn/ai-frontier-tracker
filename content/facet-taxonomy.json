@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-18",
+  "readme": [
+    "情报标签（facets）受控词表。契约见 docs/CONTENT_SCHEMA.md §6.2，门禁见 tests/governance.test.mjs。",
+    "canonical：允许作为标签值出现在内容源与生成物里的写法；",
+    "aliases：同一概念的其它写法，生成物会把它们归一为 canonical，使筛选不漏检；",
+    "placeholders：不是取值的占位符，生成物直接丢弃，不会进入筛选下拉；",
+    "pendingDecisions：疑似同义但语义待诊断，暂不生效——诊断定案后再决定并入 aliases 或保留为独立取值。",
+    "新增取值属于内容决策：先登记本文件，再改内容源；门禁会拦下未登记的写法。"
+  ],
+  "dimensions": {
+    "terminals": {
+      "label": "终端",
+      "canonical": [
+        "PC/边缘设备",
+        "可穿戴",
+        "家庭中屏",
+        "家庭中枢",
+        "平台/API",
+        "手机",
+        "机顶盒",
+        "电视大屏",
+        "语音遥控器"
+      ],
+      "aliases": {
+        "中屏": "家庭中屏"
+      },
+      "placeholders": []
+    },
+    "capabilities": {
+      "label": "能力",
+      "canonical": [
+        "ASR",
+        "TTS",
+        "个性化与记忆",
+        "任务编排",
+        "全双工",
+        "内容搜索与播放",
+        "副语言理解",
+        "唤醒与声学",
+        "声纹与身份",
+        "多模态",
+        "平台工程",
+        "端云与部署",
+        "端侧与端云",
+        "评测",
+        "语音Agent"
+      ],
+      "aliases": {
+        "记忆与个性化": "个性化与记忆"
+      },
+      "placeholders": []
+    },
+    "competitors": {
+      "label": "竞对",
+      "canonical": [
+        "Amazon/Alexa",
+        "Apple/Siri",
+        "Artificial Analysis",
+        "Deepgram",
+        "FireRedTeam",
+        "Google",
+        "Hugging Face",
+        "IndexTTS",
+        "KRAFTON",
+        "LG",
+        "LiveKit",
+        "Microsoft",
+        "NVIDIA",
+        "OpenAI",
+        "Samsung",
+        "VUI Labs",
+        "Xiaomi",
+        "xAI",
+        "中兴",
+        "中国联通/华为",
+        "华为/腾讯视频",
+        "字节跳动",
+        "海思",
+        "爱上传媒",
+        "百视通",
+        "腾讯",
+        "酷开",
+        "阿里"
+      ],
+      "aliases": {
+        "阿里/Qwen": "阿里",
+        "阿里/CosyVoice": "阿里",
+        "字节跳动/豆包": "字节跳动"
+      },
+      "placeholders": [
+        "待确认"
+      ]
+    },
+    "attributions": {
+      "label": "归因",
+      "canonical": [
+        "能力问题",
+        "体验问题",
+        "资源/商务问题",
+        "交付问题",
+        "待归因"
+      ],
+      "aliases": {},
+      "placeholders": []
+    },
+    "levels": {
+      "label": "层级",
+      "canonical": [
+        "L1-生存层",
+        "L2-竞争层",
+        "L3-未来层",
+        "待分层"
+      ],
+      "aliases": {},
+      "placeholders": []
+    }
+  },
+  "pendingDecisions": [
+    {
+      "dimension": "capabilities",
+      "from": "语音Agent",
+      "candidate": "任务编排",
+      "reason": "语义高度重叠：13 条挂 语音Agent、17 条挂 任务编排，并集 22；是否同义取决于抽样诊断对 `终端/能力` 口径的结论"
+    },
+    {
+      "dimension": "capabilities",
+      "from": "端云与部署",
+      "candidate": "端侧与端云",
+      "reason": "同一概念的两种写法；`端侧与端云` 是 sync 分类表的原写法"
+    },
+    {
+      "dimension": "competitors",
+      "from": "华为/腾讯视频",
+      "candidate": "腾讯",
+      "reason": "联合发布形态，归并到 腾讯 会丢掉 华为 这一侧"
+    },
+    {
+      "dimension": "competitors",
+      "from": "中国联通/华为",
+      "candidate": null,
+      "reason": "联通是客户/运营商、华为是供应方，本就不该挂在竞对维度（见抽样诊断 模式 4）"
+    }
+  ]
+}
