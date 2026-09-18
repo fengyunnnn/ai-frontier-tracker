@@ -34,11 +34,15 @@ test("the Markdown source keeps the required report contract", async () => {
   assert.match(markdown, /^#### .+ \{#[a-z0-9][a-z0-9-]*\}$/m);
   assert.match(
     markdown,
-    /^情报维度：终端=.+；能力=.+；(?:竞对=.+；)?归因=(?:能力问题|体验问题|资源\/商务问题|交付问题)(?:、(?:能力问题|体验问题|资源\/商务问题|交付问题))*；层级=L[123]-(?:生存层|竞争层|未来层)$/m,
+    /^情报维度：终端=.+；能力=.+；(?:竞对=.+；)?归因=(?:能力问题|体验问题|资源\/商务问题|交付问题|合规\/法务问题)(?:、(?:能力问题|体验问题|资源\/商务问题|交付问题|合规\/法务问题))*；层级=L[123]-(?:生存层|竞争层|未来层)$/m,
   );
   assert.match(markdown, /L1-生存层/);
   assert.match(markdown, /L2-竞争层/);
   assert.match(markdown, /L3-未来层/);
+  // 四类归因必须在正文里有解释性说明（总览的「四类问题对应四类资源」+ 归因框架表）。
+  // 2026-09-18 定案新增第五值「合规/法务问题」：正文说明与框架表还停在四类，
+  // 属待改项（见 scripts/facet-review.mjs 的归因段）。内容源补齐第五类后，
+  // 这里应把断言扩为含「合规/法务问题」——本条现在不扩，是为了让「还剩哪条没改」可数。
   assert.match(markdown, /能力问题[\s\S]*体验问题[\s\S]*资源\/商务问题[\s\S]*交付问题/);
 
   const periodHeadings = markdown.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
@@ -258,7 +262,7 @@ test("情报维度取值必须登记在受控词表内", async () => {
   // 动机（2026-09-18 抽样诊断）：标签本身可以在词表允许范围内，只要写法不统一，
   // 精确匹配的筛选就会漏检——`中屏` 与 `家庭中屏` 各自成一个桶。这里守住「新增取值
   // 必须先登记」这一条：登记是可评审的动作，顺手写一个新写法不是。
-  // 契约与三类角色（canonical／aliases／placeholders）见 docs/CONTENT_SCHEMA.md §6.2。
+  // 契约与四类角色（canonical／aliases／placeholders／deprecated）见 docs/CONTENT_SCHEMA.md §6.2。
   const [markdown, taxonomyRaw] = await Promise.all([
     readProjectFile("content/行业动态追踪.md"),
     readProjectFile("content/facet-taxonomy.json"),
@@ -277,6 +281,17 @@ test("情报维度取值必须登记在受控词表内", async () => {
       assert.ok(!spec.canonical.includes(placeholder),
         `${dimension}：占位符「${placeholder}」不是取值，不应同时登记为 canonical`);
     }
+    // deprecated 是「待改清单」而不是「已删除」：登记在这里的写法仍被视为已登记，构建不会变红；
+    // 只有写明它实际上是什么（category）和应改成什么（action），它才是可评审的处置而不是无据的删除。
+    // 逐条修正内容源后删掉这些条目，本测试即自动转为硬拦截。
+    for (const [legacy, entry] of Object.entries(spec.deprecated ?? {})) {
+      assert.ok(!spec.canonical.includes(legacy),
+        `${dimension}：「${legacy}」既在 canonical 又被标为 deprecated，角色冲突`);
+      assert.ok(!(legacy in spec.aliases),
+        `${dimension}：「${legacy}」既在 aliases 又被标为 deprecated，角色冲突`);
+      assert.ok(entry.category && entry.action,
+        `${dimension}：deprecated 的「${legacy}」必须写明 category 与 action`);
+    }
   }
 
   const source = markdown.replace(/\r\n/g, "\n");
@@ -294,6 +309,9 @@ test("情报维度取值必须登记在受控词表内", async () => {
         ...spec.canonical,
         ...Object.keys(spec.aliases),
         ...spec.placeholders,
+        // deprecated 的写法仍算「已登记」——否则 2026-09-18 定案一落地，构建会立刻变红，
+        // 反而看不出「还剩哪些条目没改」。待改清单由 scripts/facet-review.mjs 逐条列出。
+        ...Object.keys(spec.deprecated ?? {}),
       ]);
       for (const value of valuePart.split(/[、，,]/).map((item) => item.trim()).filter(Boolean)) {
         if (!registered.has(value)) unregistered.add(`${key}=${value}`);
@@ -325,6 +343,8 @@ test("生成物里的标签取值已完成别名归一", async () => {
   }
 
   // 归一后的取值必须仍在词表内，避免把内容源里的登记项改成一个没人认得的写法。
+  // deprecated 同样算「在词表内」：定案与内容源修正之间有窗口期，此期间旧写法还会流到生成物，
+  // 那是待改项而不是回归——待改清单见 scripts/facet-review.mjs。
   for (const [dimension, spec] of Object.entries(taxonomy.dimensions)) {
     const field = { terminals: "terminals", capabilities: "capabilities", competitors: "competitors" }[dimension];
     if (!field) continue;
@@ -332,8 +352,8 @@ test("生成物里的标签取值已完成别名归一", async () => {
       .flatMap(([, body]) => [...body.matchAll(/"([^"]+)"/g)].map(([, value]) => value));
     assert.ok(values.length > 0, `${field} 在生成物里必须有取值`);
     for (const value of new Set(values)) {
-      assert.ok(spec.canonical.includes(value),
-        `${dimension}：生成物里的「${value}」不在词表 canonical 内`);
+      assert.ok(spec.canonical.includes(value) || value in (spec.deprecated ?? {}),
+        `${dimension}：生成物里的「${value}」既不在 canonical 内，也未登记为 deprecated`);
     }
   }
 });

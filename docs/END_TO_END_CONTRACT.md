@@ -402,7 +402,7 @@ scan_window:
 | 15 | `possible_terminals` | 否 | 是 | 输入侧候选，不代表最终分类 |
 | 16 | `possible_capabilities` | 否 | 是 | 输入侧候选，不代表最终分类 |
 | 17 | `possible_competitors` | 否 | 是 | 输入侧候选，不代表最终分类 |
-| 18 | `problem_signals` | 否 | 是 | 能力、体验、资源商务或交付问题线索 |
+| 18 | `problem_signals` | 否 | 是 | 能力、体验、资源商务、交付或合规/法务问题线索 |
 | 19 | `business_relevance` | 否 | 是 | 与家庭、运营商、终端和 OS 平台的初步关联 |
 | 20 | `existing_matches` | 否 | 是 | 与现有文档疑似重复的锚点或标题 |
 | 21 | `questions_to_verify` | 否 | 是 | 进入正式写入前需回答的问题 |
