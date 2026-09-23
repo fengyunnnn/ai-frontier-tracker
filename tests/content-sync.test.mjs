@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const generatedPath = new URL("../app/content.generated.ts", import.meta.url);
@@ -35,12 +35,53 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
       new URL("../internal/forbidden-public-tokens.txt", import.meta.url),
       "utf8",
     );
-    forbiddenTokens = rawForbidden.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    // 逐行样本：跳过注释行与空行（此前把 `# …` 注释行也当成样本参与了比对）。
+    forbiddenTokens = rawForbidden.split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"));
   } catch {
     forbiddenTokens = [];
   }
+  // 归一后比对：NFKC（全角→半角）→ 小写 → 去所有空白。任一环节缺失都会整段漏检：
+  // 2026-09-17 栽在大小写（清单里的小写样本漏检页面上的大写写法）；
+  // 2026-09-18 栽在空格（清单里的样本带空格、正文里的写法不带空格，21 个样本原样扫描 0 命中，
+  // 归一后命中 6 处）。只登记一种写法就等于给这个样本留了整条盲区。
+  const normalizeToken = (text) => text.normalize("NFKC").toLowerCase().replace(/\s+/gu, "");
+  // 扫描范围＝会被发布的站点文件：app/ 下全部文件，减去 .gitignore 忽略的路径。
+  // 为什么减：app/ 里还留着 Next.js 时代的 page.tsx／layout.tsx（已被 .gitignore 忽略、
+  // 不参与构建、不进入产物），它们里面出现组织名不属于公开面；不排除就会把这条门禁变成噪声。
+  const gitignore = await readFile(new URL("../.gitignore", import.meta.url), "utf8");
+  const ignoredPaths = new Set(gitignore.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#") && !line.startsWith("!") && !line.includes("*"))
+    .map((line) => line.replace(/^\//, "")));
+  const appDir = new URL("../app/", import.meta.url);
+  const appFileNames = (await readdir(appDir, { withFileTypes: true }))
+    .filter((entry) => entry.isFile())
+    .map((entry) => `app/${entry.name}`)
+    .filter((relative) => !ignoredPaths.has(relative))
+    .map((relative) => relative.slice("app/".length))
+    .sort();
+  assert.ok(appFileNames.length > 0, "app/ 下应有可扫描的产物文件");
+  const appFileLines = [];
+  for (const name of appFileNames) {
+    const text = await readFile(new URL(name, appDir), "utf8");
+    appFileLines.push({ name, lines: text.split(/\r?\n/).map(normalizeToken) });
+  }
   for (const token of forbiddenTokens) {
-    assert.ok(!generated.includes(token), `脱敏回归：产物不应包含内部标识「${token}」`);
+    const needle = normalizeToken(token);
+    assert.ok(needle.length > 0, `令牌清单里的「${token}」归一后为空，无法比对`);
+    const hits = [];
+    for (const file of appFileLines) {
+      file.lines.forEach((line, index) => {
+        if (line.includes(needle)) hits.push(`${file.name}:${index + 1}`);
+      });
+    }
+    assert.deepEqual(hits, [],
+      `脱敏回归：产物不应包含内部标识「${token}」（归一后命中 ${hits.length} 处：`
+      + `${hits.slice(0, 10).join("、")}${hits.length > 10 ? " …" : ""}）\n`
+      + "比对是归一后的（忽略空格／全角半角／大小写）：请把该样本的写法变体一并登记到清单，"
+      + "并把公开面里的这些写法清除。");
   }
   // 通用结构断言（不写具体内部值）：内部 API 主机形态、压测内存口径。
   assert.doesNotMatch(generated, /(?:ws|http)s?:\/\/[a-z0-9.-]+\.(?:com|cn)\/v\d/);

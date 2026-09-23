@@ -80,7 +80,7 @@ for (const item of items) {
     for (const value of attached) {
       const entry = (spec.deprecated ?? {})[value];
       if (entry) {
-        deprecatedHits.push({ ...entry, dimension: key, value, line: item.line, title: short });
+        deprecatedHits.push({ ...entry, dimension: key, value, line: item.line, title: short, scope: "全库" });
       }
       if (allPending.some((p) => p.dimension === dimension && p.from === value)) {
         pendingHits.push({
@@ -95,6 +95,21 @@ for (const item of items) {
       const hints = spec.matchHints?.[value];
       if (hints && !hints.some((hint) => item.body.toLowerCase().includes(hint.toLowerCase()))) {
         unsupported.push({ dimension: key, value, line: item.line, title: short, hints: hints.join("／") });
+      }
+    }
+
+    // 条目级例外：同一取值在不同条目里角色不同，只在这些条目里算待改（见词表 readme 的 itemScoped）。
+    for (const entry of spec.itemScoped ?? []) {
+      const inScope = (entry.headingContains ?? []).some((fragment) => item.title.includes(fragment));
+      if (inScope && attached.includes(entry.value)) {
+        deprecatedHits.push({
+          ...entry,
+          dimension: key,
+          value: entry.value,
+          line: item.line,
+          title: short,
+          scope: "仅本条",
+        });
       }
     }
 
@@ -138,11 +153,11 @@ out.push(`共解析 ${items.length} 条情报。本报告由 \`scripts/facet-rev
 out.push("第 1、2 段是词表定案的直接结果；第 3、4、5 段是按规则 1／4 做的字面筛查，**可能有误报**，需人工确认。");
 out.push("");
 
-out.push(`## 1. 按规则 2 应移出该维度的取值（已登记为 deprecated）：${deprecatedHits.length} 处`);
+out.push(`## 1. 按规则 2 应移出该维度的取值（已登记为 deprecated / itemScoped）：${deprecatedHits.length} 处`);
 out.push("");
 if (deprecatedHits.length === 0) out.push("无。");
-else out.push(table(["条目行", "情报", "维度", "取值", "它实际上是什么", "建议改成"],
-  deprecatedHits.map((h) => [`L${h.line}`, h.title, h.dimension, h.value, h.category, h.action])));
+else out.push(table(["条目行", "情报", "维度", "取值", "范围", "它实际上是什么", "建议改成"],
+  deprecatedHits.map((h) => [`L${h.line}`, h.title, h.dimension, h.value, h.scope ?? "全库", h.category, h.action])));
 out.push("");
 
 out.push(`## 2. 处置未定，等你拍板（pendingDecisions）：${pendingHits.length} 处、${new Set(pendingHits.map((h) => `${h.dimension}/${h.value}`)).size} 个取值`);
