@@ -39,11 +39,23 @@ test("the Markdown source keeps the required report contract", async () => {
   assert.match(markdown, /L1-生存层/);
   assert.match(markdown, /L2-竞争层/);
   assert.match(markdown, /L3-未来层/);
-  // 四类归因必须在正文里有解释性说明（总览的「四类问题对应四类资源」+ 归因框架表）。
-  // 2026-09-18 定案新增第五值「合规/法务问题」：正文说明与框架表还停在四类，
-  // 属待改项（见 scripts/facet-review.mjs 的归因段）。内容源补齐第五类后，
-  // 这里应把断言扩为含「合规/法务问题」——本条现在不扩，是为了让「还剩哪条没改」可数。
-  assert.match(markdown, /能力问题[\s\S]*体验问题[\s\S]*资源\/商务问题[\s\S]*交付问题/);
+  // 五类归因必须在正文里有解释性说明（总览的「五类问题对应五类资源」+ 归因框架表）。
+  // 2026-09-18 决策 5：内容源已按定案补齐第五类，因此这里把断言扩为含「合规/法务问题」。
+  assert.match(markdown, /五类问题对应五类资源/);
+  assert.match(markdown, /能力问题[\s\S]*体验问题[\s\S]*资源\/商务问题[\s\S]*交付问题[\s\S]*合规\/法务问题/);
+  // 归因框架表（「问题归因矩阵」）必须与枚举逐行一致：五行、覆盖五个取值。
+  // 只改总览而漏改框架表时，上面那条 assert.match 仍会通过（它只要有顺序即成立），
+  // 所以这条按「行数 + 取值集合」全量校验，才能拦住漏改一行这种回退。
+  const frameworkLines = markdown.split(/\r?\n/);
+  const frameworkStart = frameworkLines.findIndex((line) => line.startsWith("| 业务现象 | 首要归因 |"));
+  assert.ok(frameworkStart >= 0, "归因框架表缺失（表头「| 业务现象 | 首要归因 |」）");
+  const frameworkRows = frameworkLines.slice(frameworkStart + 2, frameworkStart + 8)
+    .filter((line) => line.startsWith("|"));
+  assert.equal(frameworkRows.length, 5, "归因框架表必须有五行（四值 + 合规/法务问题）");
+  for (const attribution of ["能力问题", "体验问题", "资源/商务问题", "交付问题", "合规/法务问题"]) {
+    assert.ok(frameworkRows.some((line) => line.includes(`| ${attribution} |`)),
+      `归因框架表缺少「${attribution}」一行`);
+  }
 
   const periodHeadings = markdown.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
   assert.ok(periodHeadings.length >= 1, "at least one normalized period heading is required");
@@ -112,7 +124,9 @@ test("文档说明 covers scope and the dual-track definition", async () => {
   assert.doesNotMatch(docSection, /信息源按固定源、专项源和线索源三类管理/);
 
   // 分点必须与引导句之间留空行，否则 marked 会把引导句和列表并成一个 <p>。
-  assert.match(docSection, /帮助OS平台部：\n\n- 了解语音交互/, "文档目的分点需换行");
+  // 2026-09-23：引导句里的部门名已按公开面脱敏收敛为「平台团队」，断言随之更新；
+  // 断言的职责是「留空行」，不是锁定组织名。
+  assert.match(docSection, /帮助平台团队：\n\n- 了解语音交互/, "文档目的分点需换行");
   assert.match(docSection, /本报告主要为以下工作提供输入：\n\n- OS平台能力规划/, "服务对象分点需换行");
   assert.match(docSection, /^- 专题升级：同一方向积累足够证据后，形成专题研究。$/m);
 
@@ -291,6 +305,32 @@ test("情报维度取值必须登记在受控词表内", async () => {
         `${dimension}：「${legacy}」既在 aliases 又被标为 deprecated，角色冲突`);
       assert.ok(entry.category && entry.action,
         `${dimension}：deprecated 的「${legacy}」必须写明 category 与 action`);
+    }
+    // itemScoped 是条目级例外（同一取值在不同条目里角色不同）。它必须在内容源里定位到
+    // 唯一一条 #### 标题，且该条目确实挂着这个取值：内容源改掉之后定位会失败 → 门禁转红
+    // → 强制回来删登记，与 deprecated 是同一套闭环。用标题片段而非行号定位，因为行号会漂移。
+    for (const entry of spec.itemScoped ?? []) {
+      assert.ok(spec.canonical.includes(entry.value),
+        `${dimension}：itemScoped 的「${entry.value}」不在 canonical 内`);
+      assert.ok(entry.category && entry.action,
+        `${dimension}：itemScoped 的「${entry.value}」必须写明 category 与 action`);
+      assert.ok(Array.isArray(entry.headingContains) && entry.headingContains.length > 0,
+        `${dimension}：itemScoped 的「${entry.value}」必须给出 headingContains 标题片段`);
+      const sourceLines = markdown.replace(/\r\n/g, "\n").split("\n");
+      for (const fragment of entry.headingContains) {
+        const headingIndexes = sourceLines.reduce(
+          (acc, line, index) => (line.startsWith("#### ") && line.includes(fragment) ? [...acc, index] : acc), []);
+        assert.equal(headingIndexes.length, 1,
+          `itemScoped 定位「${fragment}」应命中唯一一条 #### 标题，实际命中 ${headingIndexes.length} 条`);
+        const start = headingIndexes[0];
+        const nextBoundary = sourceLines.findIndex((line, index) => index > start && /^(####|###|##) /.test(line));
+        const block = sourceLines.slice(start, nextBoundary === -1 ? sourceLines.length : nextBoundary);
+        const metaLine = block.find((line) => line.startsWith("情报维度："));
+        assert.ok(metaLine, `itemScoped 定位到的条目「${fragment}」缺少 情报维度 行`);
+        const field = metaLine.slice(metaLine.indexOf(`${spec.label}=`) + spec.label.length + 1).split("；")[0];
+        assert.ok(field.split(/[、，,]/).map((value) => value.trim()).includes(entry.value),
+          `itemScoped：「${fragment}」这条条目并未挂「${entry.value}」，内容源已改的话请删除该登记`);
+      }
     }
   }
 

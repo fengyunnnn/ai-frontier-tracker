@@ -421,7 +421,7 @@ scan_window:
   trend_baseline: preceding_28_days
 discovered_at: 2026-09-10T10:00:00+08:00
 target_document: content/行业动态追踪.md
-audience: [OS平台部管理者, 产品, 研发]
+audience: [平台团队管理者, 产品, 研发]
 focus: [语音交互, AI人机交互, 家庭终端, 运营商业务]
 candidates:
   - candidate_id: demo-001
