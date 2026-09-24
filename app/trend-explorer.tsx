@@ -16,7 +16,7 @@ const searchScopes = [
   { id: "product", label: "产品", keywords: ["产品", "电视", "大屏", "遥控器", "终端", "AI助手", "智能硬件"] },
   { id: "company", label: "厂商", keywords: ["公司", "厂商", "竞品", "OpenAI", "Google", "阿里", "腾讯", "字节", "中兴"] },
   { id: "scenario", label: "场景", keywords: ["场景", "家庭", "运营商", "儿童", "老人", "车载", "会议"] },
-  { id: "open-question", label: "待确认", keywords: ["待确认", "需要确认", "需进一步", "仍需验证", "建议动作"] },
+  { id: "open-question", label: "待确认", keywords: ["待确认", "需要确认", "需进一步", "仍需验证"] },
 ] as const;
 
 type SearchScopeId = (typeof searchScopes)[number]["id"];
@@ -52,7 +52,7 @@ function renderMarkdown(section: Section) {
       if (!contentHeading) return match;
       return `<${tag} id="${contentHeading.id}" tabindex="-1">`;
     })
-    // 总览的四个分层标记（【能力层】…）渲染为分层小标题，避免整段正文被读成一块
+    // 总览的分层标记（【能力层】…）渲染为分层小标题，避免整段正文被读成一块
     .replace(/<p>【([^】<]+)】([^<]*)<\/p>/g, (_match, badge: string, rest: string) => (
       `<h3 class="overview-layer">`
       + `<span class="overview-layer-badge">${badge}</span>`
@@ -399,13 +399,6 @@ export function TrendExplorer() {
     });
     return [...groups.values()];
   }, [results]);
-
-  const recommendedQuestions = useMemo(() => active.body
-    .split("\n")
-    .map(cleanMarkdownLine)
-    .filter((line) => /待确认|需要确认|需进一步|仍需验证|建议动作|需要重点判断/.test(line))
-    .filter((line, index, lines) => line.length >= 12 && lines.indexOf(line) === index)
-    .slice(0, 4), [active]);
 
   const highlightGroups = useMemo(() => {
     const groups = new Map<string, Array<(typeof report.highlights)[number]>>();
@@ -908,17 +901,6 @@ export function TrendExplorer() {
                   <h2>{active.numeral}、{active.title}</h2>
                   <SectionBody section={active} />
                 </article>
-                {recommendedQuestions.length > 0 && (
-                  <aside className="related-questions" aria-labelledby="related-questions-title">
-                    <div>
-                      <span>NEXT QUESTIONS</span>
-                      <h3 id="related-questions-title">本章待继续确认</h3>
-                    </div>
-                    <ul>
-                      {recommendedQuestions.map((question) => <li key={question}>{question}</li>)}
-                    </ul>
-                  </aside>
-                )}
               </div>
             ) : (
               <div className="all-report-stack">

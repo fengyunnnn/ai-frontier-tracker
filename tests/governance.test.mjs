@@ -219,6 +219,27 @@ test("四—七章展开区不再包含内部工作流字段", async () => {
   assert.doesNotMatch(ch7, /前期客户需求调研/, "公开内容源不得出现内部材料名");
 });
 
+test("渲染层不再输出已删除的区块与内部字段名", async () => {
+  const component = await readProjectFile("app/trend-explorer.tsx");
+  const css = await readProjectFile("app/globals.css");
+
+  // 2026-09-24 精简轮：这些区块/字段名只存在于组件与样式层，内容源侧断言拦不住，
+  // 必须在这里守。它们一度被漏删（内容源已清、渲染层仍在），故逐项反向断言。
+  for (const marker of ["core-signals", "竞争判断分层", "NEXT QUESTIONS", "待继续确认",
+    "related-questions", "建议动作", "优先级与行动判断", "横向诊断轴"]) {
+    assert.doesNotMatch(component, new RegExp(marker),
+      `app/trend-explorer.tsx 不应再出现「${marker}」`);
+  }
+  for (const marker of [".direction-", "related-questions"]) {
+    assert.doesNotMatch(css, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `app/globals.css 不应再出现「${marker}」样式`);
+  }
+
+  // 卡片正面精简后，展开入口文案必须是「查看详情 →」。
+  assert.match(component, /查看详情/, "卡片展开入口应使用「查看详情」文案");
+  assert.doesNotMatch(component, /展开分析/, "旧的「展开分析」文案应已替换");
+});
+
 test("章节渲染器不再向 Markdown 注入裸标题标签", async () => {
   const component = await readProjectFile("app/trend-explorer.tsx");
 
