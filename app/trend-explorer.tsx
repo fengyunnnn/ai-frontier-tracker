@@ -10,22 +10,10 @@ type ContentHeading = Section["contentHeadings"][number];
 type IntelligenceItem = (typeof report.intelligenceItems)[number];
 type ReadingMode = "single" | "all";
 
-const searchScopes = [
-  { id: "all", label: "全部内容", keywords: [] },
-  { id: "capability", label: "能力", keywords: ["能力", "ASR", "TTS", "全双工", "多模态", "端侧", "声纹", "唤醒"] },
-  { id: "product", label: "产品", keywords: ["产品", "电视", "大屏", "遥控器", "终端", "AI助手", "智能硬件"] },
-  { id: "company", label: "厂商", keywords: ["公司", "厂商", "竞品", "OpenAI", "Google", "阿里", "腾讯", "字节", "中兴"] },
-  { id: "scenario", label: "场景", keywords: ["场景", "家庭", "运营商", "儿童", "老人", "车载", "会议"] },
-  { id: "open-question", label: "待确认", keywords: ["待确认", "需要确认", "需进一步", "仍需验证"] },
-] as const;
-
-type SearchScopeId = (typeof searchScopes)[number]["id"];
-
 /** 左侧常驻导航栏的板块入口：与页面各 section 的 id 一一对应。 */
 const railTargets = [
   { id: "weekly-highlights", label: "本期值得优先关注" },
-  { id: "search-hub", label: "搜索全部报告" },
-  { id: "intelligence-hub", label: "多维情报筛选" },
+  { id: "intelligence-hub", label: "多维筛选" },
   { id: "full-report", label: "完整报告" },
 ] as const;
 
@@ -61,16 +49,6 @@ function renderMarkdown(section: Section) {
     ))
     // 「→ 对应章节：X」渲染为章节指向标记；箭头由 CSS 提供
     .replace(/<p>→\s*对应章节：(.+?)<\/p>/g, '<p class="overview-ref">对应章节：$1</p>');
-}
-
-function cleanMarkdownLine(line: string) {
-  return line
-    .replace(/^#{1,6}\s+/, "")
-    .replace(/^[-*>\s]+/, "")
-    .replace(/^\d+[.)]\s*/, "")
-    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
-    .replace(/[*_`|]/g, "")
-    .trim();
 }
 
 /** 周期区间在 Tab 上压成短标签（2026-09-14—2026-09-20 → 09-14—09-20）更易扫读。 */
@@ -246,8 +224,6 @@ export function TrendExplorer() {
       ? initialSection.id
       : report.sections[1]?.id ?? report.sections[0]?.id,
   );
-  const [query, setQuery] = useState("");
-  const [searchScope, setSearchScope] = useState<SearchScopeId>("all");
   const [terminalFilter, setTerminalFilter] = useState("all");
   const [capabilityFilter, setCapabilityFilter] = useState("all");
   const [competitorFilter, setCompetitorFilter] = useState("all");
@@ -258,7 +234,6 @@ export function TrendExplorer() {
   const [railSection, setRailSection] = useState<string>(railTargets[0].id);
   const [readingProgress, setReadingProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
   const filterDetailsRef = useRef<HTMLDetailsElement>(null);
   const active = report.sections.find((section) => section.id === activeId) ?? report.sections[0];
   const updatedAt = new Intl.DateTimeFormat("zh-CN", {
@@ -268,21 +243,6 @@ export function TrendExplorer() {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(report.sourceUpdatedAt));
-
-  useEffect(() => {
-    const handleShortcut = (event: KeyboardEvent) => {
-      if (event.key === "/" && document.activeElement?.tagName !== "INPUT") {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
-      if (event.key === "Escape") {
-        setQuery("");
-        searchRef.current?.blur();
-      }
-    };
-    window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
-  }, []);
 
   useEffect(() => {
     const updateReadingProgress = () => {
@@ -361,45 +321,6 @@ export function TrendExplorer() {
     return () => reportRoot?.removeEventListener("click", handleMarkdownLink);
   }, [readingMode]);
 
-  const searchIndex = useMemo(() => report.sections.flatMap((section) => {
-    let currentHeading: ContentHeading | undefined;
-    let headingIndex = 0;
-    return section.body.split("\n").flatMap((rawLine) => {
-      const headingMatch = rawLine.match(/^(#{2,4})\s+(.+?)(?:\s+\{#[a-z0-9][a-z0-9-]*\})?\s*$/);
-      if (headingMatch) {
-        currentHeading = section.contentHeadings[headingIndex];
-        headingIndex += 1;
-        return [];
-      }
-      const line = cleanMarkdownLine(rawLine);
-      if (line.length < 8 || /^-+$/.test(line) || line.startsWith("http")) return [];
-      return [{ section, contentHeading: currentHeading, line, searchable: line.toLowerCase() }];
-    });
-  }), []);
-
-  const results = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    const scope = searchScopes.find((item) => item.id === searchScope) ?? searchScopes[0];
-    if (!keyword && scope.id === "all") return [];
-    return searchIndex.filter((item) => {
-      const matchesQuery = !keyword || item.searchable.includes(keyword);
-      const matchesScope = scope.id === "all" || scope.keywords.some(
-        (term) => item.searchable.includes(term.toLowerCase()),
-      );
-      return matchesQuery && matchesScope;
-    }).slice(0, 24);
-  }, [query, searchIndex, searchScope]);
-
-  const groupedResults = useMemo(() => {
-    const groups = new Map<string, { section: Section; items: typeof results }>();
-    results.forEach((result) => {
-      const group = groups.get(result.section.id) ?? { section: result.section, items: [] };
-      group.items.push(result);
-      groups.set(result.section.id, group);
-    });
-    return [...groups.values()];
-  }, [results]);
-
   const highlightGroups = useMemo(() => {
     const groups = new Map<string, Array<(typeof report.highlights)[number]>>();
     report.highlights.forEach((item) => {
@@ -439,7 +360,22 @@ export function TrendExplorer() {
   const facetsAreActive = [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter]
     .some((value) => value !== "all");
 
-  // 「多维情报筛选」的结果区默认折叠。从左栏改完筛选却看不到结果是坏体验，
+  /**
+   * 结果卡片底部的标签行。只显示「与当前筛选一致」的取值：该维度已被筛选就显示筛选值，
+   * 未筛选才回落到该条目自己的首个取值。
+   *
+   * 为什么不直接取各维度的第一个取值：多维筛选用的是包含匹配，一条情报可以同时挂在多个
+   * 终端／能力下。取 [0] 会出现「按电视大屏筛，卡片上却写着语音遥控器」——读者看到的是
+   * 与自己筛选条件无关的标签，只会判成筛错了。
+   */
+  const facetTagLine = (item: IntelligenceItem) => [
+    terminalFilter === "all" ? item.terminals[0] : terminalFilter,
+    capabilityFilter === "all" ? item.capabilities[0] : capabilityFilter,
+    competitorFilter === "all" ? "" : competitorFilter,
+    attributionFilter === "all" ? item.attributions[0] : attributionFilter,
+  ].filter(Boolean).join(" · ");
+
+  // 「多维筛选」的筛选表单默认折叠。从左栏改完筛选却看不到结果是坏体验，
   // 因此只要有筛选条件生效就自动展开一次；用户随后手动收起则不再干预。
   useEffect(() => {
     if (facetsAreActive && filterDetailsRef.current) filterDetailsRef.current.open = true;
@@ -706,161 +642,84 @@ export function TrendExplorer() {
           )}
         </section>
 
-        <section className="search-hub" id="search-hub" aria-labelledby="search-title">
-          <div className="search-heading">
-            <div>
-              <p className="section-kicker">SEARCH THE REPORT</p>
-              <h2 id="search-title">搜索全部报告</h2>
-            </div>
-            <p>支持能力、产品、厂商、场景和待确认问题</p>
-          </div>
-          <label className="search-box search-box-prominent">
-            <span aria-hidden="true">⌕</span>
-            <input
-              ref={searchRef}
-              aria-label="搜索全部报告"
-              placeholder="搜索全双工、TTS、端侧、儿童模式……"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            {query || searchScope !== "all" ? (
-              <button
-                className="clear-search"
-                type="button"
-                onClick={() => { setQuery(""); setSearchScope("all"); }}
-                aria-label="清空搜索和筛选"
-              >×</button>
-            ) : <kbd>/</kbd>}
-          </label>
-          <div className="search-scope-chips" aria-label="按内容类型筛选">
-            {searchScopes.map((scope) => (
-              <button
-                className={searchScope === scope.id ? "active" : ""}
-                key={scope.id}
-                type="button"
-                aria-pressed={searchScope === scope.id}
-                onClick={() => setSearchScope(scope.id)}
-              >
-                {scope.label}
-              </button>
-            ))}
-          </div>
-          {(query || searchScope !== "all") && (
-            <div className="search-results search-results-prominent" aria-live="polite">
-              <div className="search-overview">
-                <div>
-                  <span>匹配速览</span>
-                  <strong>{results.length}</strong>
-                  <small>条相关内容</small>
-                </div>
-                <p>
-                  覆盖 {groupedResults.length} 个章节
-                  {groupedResults.length > 0 && `：${groupedResults.map((group) => group.section.title).join("、")}`}
-                </p>
-              </div>
-              {groupedResults.length ? groupedResults.map((group) => (
-                <section className="search-result-group" key={group.section.id}>
-                  <button className="search-group-heading" type="button" onClick={() => chooseSection(group.section)}>
-                    <span>{group.section.numeral}</span>
-                    <strong>{group.section.title}</strong>
-                    <small>{group.items.length} 条</small>
-                  </button>
-                  <div>
-                    {group.items.map((result, index) => (
-                      <button
-                        className="search-result"
-                        key={`${result.section.id}-${result.contentHeading?.id ?? "root"}-${index}`}
-                        onClick={() => result.contentHeading
-                          ? chooseContentHeading(result.section, result.contentHeading)
-                          : chooseSection(result.section)}
-                        type="button"
-                      >
-                        {result.contentHeading && <strong>{result.contentHeading.title}</strong>}
-                        <span>{result.line.slice(0, 170)}{result.line.length > 170 ? "…" : ""}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )) : <div className="search-result search-empty">没有找到匹配内容，请尝试缩短关键词或切换筛选类型。</div>}
-            </div>
-          )}
-        </section>
-
         <section className="intelligence-hub" id="intelligence-hub" aria-labelledby="intelligence-filter-title">
-          <details className="intelligence-filter-disclosure" ref={filterDetailsRef}>
-            <summary className="intelligence-filter-summary">
-              <span>
-                <span className="section-kicker">COMPETITIVE INTELLIGENCE</span>
-                <strong id="intelligence-filter-title">多维情报筛选</strong>
-              </span>
-              <span className="intelligence-count">
-                <strong>{report.metrics.intelligence}</strong>
-                <span> 条情报</span>
-              </span>
-            </summary>
-            <p className="intelligence-filter-description">用结构化维度定位同一问题：在哪类终端、涉及什么能力、面对谁、该由谁解决、处于哪一竞争层。</p>
-            <div className="intelligence-filters">
-              <label>
-                <span>终端类型</span>
-                <select value={terminalFilter} onChange={(event) => setTerminalFilter(event.target.value)}>
-                  <option value="all">全部终端</option>
-                  {facetOptions.terminals.map((value) => <option value={value} key={value}>{value}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>能力域</span>
-                <select value={capabilityFilter} onChange={(event) => setCapabilityFilter(event.target.value)}>
-                  <option value="all">全部能力</option>
-                  {facetOptions.capabilities.map((value) => <option value={value} key={value}>{value}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>竞对</span>
-                <select value={competitorFilter} onChange={(event) => setCompetitorFilter(event.target.value)}>
-                  <option value="all">全部竞对</option>
-                  {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>问题归因</span>
-                <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
-                  <option value="all">全部归因</option>
-                  {facetOptions.attributions.map((value) => <option value={value} key={value}>{value}</option>)}
-                </select>
-              </label>
-              <label>
-                <span>竞争层级</span>
-                <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
-                  <option value="all">全部层级</option>
-                  {facetOptions.levels.map((value) => <option value={value} key={value}>{value}</option>)}
-                </select>
-              </label>
-              <button className="reset-facets" type="button" onClick={resetFacets} disabled={!facetsAreActive}>重置筛选</button>
+          <p className="section-kicker">MULTI-DIMENSION FILTER</p>
+          <div className="section-heading-row">
+            <div>
+              <h2 className="section-title" id="intelligence-filter-title">多维筛选</h2>
+              <p className="section-description">用结构化维度定位同一问题：在哪类终端、涉及什么能力、面对谁、该由谁解决、处于哪一竞争层。</p>
             </div>
-          </details>
-          {facetsAreActive && (
-            <>
-              <div className="intelligence-result-grid" aria-live="polite">
-                {filteredIntelligence.slice(0, 18).map((item) => (
-                  <button className="intelligence-result-card" type="button" key={item.id} onClick={() => chooseIntelligenceItem(item)}>
-                    <div>
-                      <span>{item.sectionTitle}</span>
-                      <b>{item.level}</b>
-                    </div>
-                    <strong>{item.title}</strong>
-                    <p>{item.summary}</p>
-                    <small>{[...item.terminals.slice(0, 1), ...item.capabilities.slice(0, 1), ...item.attributions.slice(0, 1)].join(" · ")}</small>
-                  </button>
-                ))}
-                {filteredIntelligence.length === 0 && (
-                  <div className="intelligence-empty">当前组合没有匹配条目。可减少一个筛选条件，或把缺失维度列入下一轮输入任务。</div>
-                )}
+            <span className="section-note">共 {report.metrics.intelligence} 条情报</span>
+          </div>
+          <div className="intelligence-panel">
+            <details className="intelligence-filter-disclosure" ref={filterDetailsRef}>
+              <summary className="intelligence-filter-summary">
+                <span>
+                  <strong>筛选条件</strong>
+                </span>
+              </summary>
+              <div className="intelligence-filters">
+                <label>
+                  <span>终端类型</span>
+                  <select value={terminalFilter} onChange={(event) => setTerminalFilter(event.target.value)}>
+                    <option value="all">全部终端</option>
+                    {facetOptions.terminals.map((value) => <option value={value} key={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>能力域</span>
+                  <select value={capabilityFilter} onChange={(event) => setCapabilityFilter(event.target.value)}>
+                    <option value="all">全部能力</option>
+                    {facetOptions.capabilities.map((value) => <option value={value} key={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>竞对</span>
+                  <select value={competitorFilter} onChange={(event) => setCompetitorFilter(event.target.value)}>
+                    <option value="all">全部竞对</option>
+                    {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>问题归因</span>
+                  <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
+                    <option value="all">全部归因</option>
+                    {facetOptions.attributions.map((value) => <option value={value} key={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>竞争层级</span>
+                  <select value={levelFilter} onChange={(event) => setLevelFilter(event.target.value)}>
+                    <option value="all">全部层级</option>
+                    {facetOptions.levels.map((value) => <option value={value} key={value}>{value}</option>)}
+                  </select>
+                </label>
+                <button className="reset-facets" type="button" onClick={resetFacets} disabled={!facetsAreActive}>重置筛选</button>
               </div>
-              {filteredIntelligence.length > 18 && (
-                <p className="intelligence-overflow">当前先展示前 18 条；继续收窄维度可定位具体情报。</p>
-              )}
-            </>
-          )}
+            </details>
+            {facetsAreActive && (
+              <>
+                <div className="intelligence-result-grid" aria-live="polite">
+                  {filteredIntelligence.slice(0, 18).map((item) => (
+                    <button className="intelligence-result-card" type="button" key={item.id} onClick={() => chooseIntelligenceItem(item)}>
+                      <div>
+                        <span>{item.sectionTitle}</span>
+                      </div>
+                      <strong>{item.title}</strong>
+                      <p>{item.summary}</p>
+                      <small>{facetTagLine(item)}</small>
+                    </button>
+                  ))}
+                  {filteredIntelligence.length === 0 && (
+                    <div className="intelligence-empty">当前组合没有匹配条目。可减少一个筛选条件，或把缺失维度列入下一轮输入任务。</div>
+                  )}
+                </div>
+                {filteredIntelligence.length > 18 && (
+                  <p className="intelligence-overflow">当前先展示前 18 条；继续收窄维度可定位具体情报。</p>
+                )}
+              </>
+            )}
+          </div>
         </section>
 
         <section className="report-section" id="full-report">

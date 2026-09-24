@@ -107,6 +107,16 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
   assert.match(generated, /运营商招采与行业标准/);
   assert.match(generated, /海思机顶盒芯片公开规格/);
   assert.match(generated, /公开“内容开放”不等于获得语音直达播放权限/);
+  // 2026-09-24：卡片摘要只留正文。内容源每条首句都带一个字段名引导词，直接透传会把
+  // 内部工作流的字段名摆在卡片正面。生成阶段按显式清单剥离，这里守两件事：
+  // ① 摘要不再以引导词开头；② 只认清单——正文自己以「Vinci2：」开头的那条必须原样保留，
+  // 否则就说明有人把剥离改写成了「首个冒号前一律去掉」的通用规则。
+  assert.doesNotMatch(
+    generated,
+    /"summary": "(?:结论先行|竞争判断|公司动作|产品动作|技术事件|本周期技术事件)[：:]/,
+    "卡片摘要不应再以字段名引导词开头",
+  );
+  assert.match(generated, /"summary": "Vinci2：/, "剥离只认清单，不得误伤正文自带的「Vinci2：」前缀");
   const detailIds = [...generated.matchAll(/"detailId": "([a-z0-9-]+)"/g)].map(
     ([, detailId]) => detailId,
   );

@@ -226,11 +226,14 @@ test("渲染层不再输出已删除的区块与内部字段名", async () => {
   // 2026-09-24 精简轮：这些区块/字段名只存在于组件与样式层，内容源侧断言拦不住，
   // 必须在这里守。它们一度被漏删（内容源已清、渲染层仍在），故逐项反向断言。
   for (const marker of ["core-signals", "竞争判断分层", "NEXT QUESTIONS", "待继续确认",
-    "related-questions", "建议动作", "优先级与行动判断", "横向诊断轴"]) {
+    "related-questions", "建议动作", "优先级与行动判断", "横向诊断轴",
+    // 2026-09-24 第二轮：「搜索全部报告」整块下架，连同它的快捷键、作用域与派生索引。
+    "search-hub", "搜索全部报告", "searchScopes", "cleanMarkdownLine", "searchRef",
+    "searchIndex", "多维情报筛选", "intelligence-count"]) {
     assert.doesNotMatch(component, new RegExp(marker),
       `app/trend-explorer.tsx 不应再出现「${marker}」`);
   }
-  for (const marker of [".direction-", "related-questions"]) {
+  for (const marker of [".direction-", "related-questions", "search-"]) {
     assert.doesNotMatch(css, new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
       `app/globals.css 不应再出现「${marker}」样式`);
   }
@@ -238,6 +241,34 @@ test("渲染层不再输出已删除的区块与内部字段名", async () => {
   // 卡片正面精简后，展开入口文案必须是「查看详情 →」。
   assert.match(component, /查看详情/, "卡片展开入口应使用「查看详情」文案");
   assert.doesNotMatch(component, /展开分析/, "旧的「展开分析」文案应已替换");
+});
+
+test("多维筛选与完整报告同级，结果卡片不再显示与筛选无关的标签", async () => {
+  const component = await readProjectFile("app/trend-explorer.tsx");
+
+  // 「多维筛选」必须是章节级 h2（与「完整报告」同级）。它在 2026-09-24 之前只是 details
+  // 的 summary 里一个 <strong>，视觉上不构成章节标题；页面同时不再有「搜索全部报告」。
+  assert.equal(
+    (component.match(/<h2 className="section-title" id="intelligence-filter-title">多维筛选<\/h2>/g) ?? []).length,
+    1,
+    "「多维筛选」必须以 section-title 级别的 h2 出现",
+  );
+  assert.match(component, /用结构化维度定位同一问题/, "章节说明应随标题上移到章节头");
+  assert.match(component, /className="intelligence-panel"/, "筛选控件与结果区应合成一张卡");
+
+  // 结果卡片底部的标签行按「与当前筛选一致」的取值生成。此前一律取各维度的第一个取值，
+  // 一条情报挂在多个终端下时会出现「按电视大屏筛、卡片上却写着语音遥控器」——实测
+  // 「电视大屏」命中的 18 条里有 6 条如此，读者只会判成筛错了。旧的 slice(0, 1) 写法
+  // 一旦回流，这条断言转红。
+  assert.match(component, /const facetTagLine = \(item: IntelligenceItem\) => \[/,
+    "标签行必须由 facetTagLine 统一生成");
+  assert.match(component, /terminalFilter === "all" \? item\.terminals\[0\] : terminalFilter/,
+    "已筛选的维度必须显示筛选值");
+  assert.doesNotMatch(component, /\.\.\.item\.terminals\.slice\(0, 1\)/,
+    "旧的「取首个终端」写法应已删除");
+
+  // 卡片正面同时去掉层级码（2026-09-24 决策）：层级仍参与筛选，但不再挂在结果卡片上。
+  assert.doesNotMatch(component, /<b>\{item\.level\}<\/b>/, "结果卡片不应再显示层级码");
 });
 
 test("章节渲染器不再向 Markdown 注入裸标题标签", async () => {

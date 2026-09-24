@@ -105,6 +105,14 @@ const parseIntelligenceMetadata = (body) => {
   };
 };
 
+/**
+ * 摘要要出现在卡片正面，必须只留正文。内容源里每条的首句都带一个字段名引导词
+ * （结论先行／竞争判断／公司动作／产品动作／技术事件／本周期技术事件），直接透传会把
+ * 内部工作流的字段名摆到读者面前。只按显式清单剥离，不能写成「首个冒号前一律去掉」——
+ * 正文本身常以「Vinci2：围绕连续第一视角…」这类形式开头，通用规则会误伤。
+ */
+const summaryLeadingFieldPattern = /^(?:结论先行|竞争判断|公司动作|产品动作|技术事件|本周期技术事件)[：:]\s*/;
+
 const summarizeDetail = (body) => {
   const line = body.split("\n")
     .map((item) => item
@@ -117,7 +125,8 @@ const summarizeDetail = (body) => {
       && !/^(判断状态|标签|发布时间|核验状态|来源|证据标签|成熟度与证据边界|建议动作)[：:]/.test(item)
       && !item.startsWith("http"));
   if (!line) return "进入条目查看事实、判断边界与后续动作。";
-  return `${line.slice(0, 110)}${line.length > 110 ? "…" : ""}`;
+  const summary = line.replace(summaryLeadingFieldPattern, "");
+  return `${summary.slice(0, 110)}${summary.length > 110 ? "…" : ""}`;
 };
 
 const headings = [...raw.matchAll(headingPattern)];
