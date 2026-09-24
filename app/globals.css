@@ -703,20 +703,13 @@ a {
   background: #fff;
 }
 
-.direction-grid,
-.highlight-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
 .highlight-grid {
   /* auto-fit + 最小列宽：该周只有 1 条时卡片占满整行，不再半空。 */
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
   gap: var(--space-3);
 }
 
-.direction-card,
 .highlight-card {
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -738,46 +731,16 @@ a {
   background: #fcfdfc;
 }
 
-.direction-grid {
-  gap: var(--space-3);
-}
-
-.direction-card {
-  padding: var(--space-4) 18px;
-  border-radius: var(--radius-md);
-  background: var(--surface-muted);
-}
-
-.direction-index {
-  color: var(--amber);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 700;
-}
-
-.direction-card h3,
 .highlight-card h3 {
   margin: 10px 0 10px;
   font-size: 20px;
   line-height: 1.45;
 }
 
-.direction-card p,
 .highlight-card p {
   margin: 0;
   color: var(--muted);
   line-height: 1.75;
-}
-
-.direction-card h3 {
-  margin: 6px 0;
-  font-size: var(--text-base);
-  line-height: 1.4;
-}
-
-.direction-card p {
-  font-size: var(--text-sm);
-  line-height: 1.65;
 }
 
 .highlight-meta {
@@ -1772,7 +1735,6 @@ a {
 }
 
 @media (max-width: 860px) {
-  .direction-grid,
   .highlight-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -1869,7 +1831,6 @@ a {
     padding: 36px 18px 28px;
   }
 
-  .direction-grid,
   .highlight-grid {
     grid-template-columns: 1fr;
   }

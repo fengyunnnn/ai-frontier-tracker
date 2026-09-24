@@ -24,7 +24,6 @@ type SearchScopeId = (typeof searchScopes)[number]["id"];
 /** 左侧常驻导航栏的板块入口：与页面各 section 的 id 一一对应。 */
 const railTargets = [
   { id: "weekly-highlights", label: "本期值得优先关注" },
-  { id: "core-signals", label: "竞争判断分层" },
   { id: "search-hub", label: "搜索全部报告" },
   { id: "intelligence-hub", label: "多维情报筛选" },
   { id: "full-report", label: "完整报告" },
@@ -164,21 +163,14 @@ function IntelligenceReport({ section }: { section: Section }) {
                     <p>{item.summary}</p>
                   </div>
                   <div className="intelligence-summary-side">
-                    <div className="facet-tag-row" aria-label="情报维度">
+                    {/* 卡片正面只留层级：终端／能力／竞对／归因仍参与筛选，但不在这里展示。 */}
+                    <div className="facet-tag-row" aria-label="竞争层级">
                       <span className={`facet-chip level-chip level-${item.level.slice(0, 2).toLowerCase()}`}>{item.level}</span>
-                      {item.attributions.slice(0, 2).map((value) => <span className="facet-chip attribution-chip" key={value}>{value}</span>)}
-                      {item.terminals.slice(0, 1).map((value) => <span className="facet-chip" key={value}>{value}</span>)}
                     </div>
-                    <span className="intelligence-expand">展开分析 <b aria-hidden="true">＋</b></span>
+                    <span className="intelligence-expand">查看详情 <b aria-hidden="true">→</b></span>
                   </div>
                 </summary>
                 <div className="intelligence-body">
-                  <div className="intelligence-dimensions">
-                    <span><strong>终端</strong>{item.terminals.join("、") || "未标注"}</span>
-                    <span><strong>能力</strong>{item.capabilities.join("、") || "未标注"}</span>
-                    <span><strong>竞对</strong>{item.competitors.join("、") || "非竞对项"}</span>
-                    <span><strong>归因</strong>{item.attributions.join("、")}</span>
-                  </div>
                   <MarkdownFragment content={item.body} />
                 </div>
               </details>
@@ -196,7 +188,6 @@ function InternalProgressReport({ section }: { section: Section }) {
     <details className="internal-capability-card" id={item.id} key={item.id}>
       <summary>
         <span>{item.title}</span>
-        <small>状态：存量材料</small>
       </summary>
       <div className="internal-capability-body">
         <MarkdownFragment content={item.body} />
@@ -218,7 +209,6 @@ function InternalProgressReport({ section }: { section: Section }) {
             <section className="internal-category" key={item.id}>
               <div className="internal-category-heading">
                 <h3 id={item.id} tabIndex={-1}>{item.title}</h3>
-                <span>{item.capabilities.length} 项能力</span>
               </div>
               <MarkdownFragment content={item.body} />
               <div className="internal-capability-grid">{item.capabilities.map(renderCapability)}</div>
@@ -721,23 +711,6 @@ export function TrendExplorer() {
               ))}
             </div>
           )}
-        </section>
-
-        <section id="core-signals">
-          <p className="section-kicker">CORE SIGNALS</p>
-          <div className="section-heading-row">
-            <h2 className="section-title">竞争判断分层</h2>
-            <span className="section-note">准入 → 竞争 → 未来 · 横向归因</span>
-          </div>
-          <div className="direction-grid">
-            {report.directions.map((direction) => (
-              <article className="direction-card" key={direction.index}>
-                <span className="direction-index">0{direction.index}</span>
-                <h3>{direction.title}</h3>
-                <p>{direction.detail}</p>
-              </article>
-            ))}
-          </div>
         </section>
 
         <section className="search-hub" id="search-hub" aria-labelledby="search-title">

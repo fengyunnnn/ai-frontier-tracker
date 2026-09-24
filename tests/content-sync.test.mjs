@@ -86,10 +86,20 @@ test("Markdown is transformed into the complete visual-site dataset", async () =
   // 通用结构断言（不写具体内部值）：内部 API 主机形态、压测内存口径。
   assert.doesNotMatch(generated, /(?:ws|http)s?:\/\/[a-z0-9.-]+\.(?:com|cn)\/v\d/);
   assert.doesNotMatch(generated, /内存(?:占用|使用)?超\s*\d{2,}\s*GB/);
-  assert.match(generated, /Level 1｜生存层：准入与内容闭环/);
-  assert.match(generated, /Level 2｜竞争层：自然交互与真实场景/);
-  assert.match(generated, /Level 3｜未来层：任务编排与跨端智能/);
-  assert.match(generated, /横向诊断轴｜先归因，再投入/);
+  // 2026-09-24：总览删去「我们自己｜优先级与行动判断」整块，页面「竞争判断分层」卡片
+  // （report.directions）连同 core-signals 区块一并移除。这四条分层判断曾是 directions 的
+  // 唯一数据源，所以这里改为反向断言：它们既不该留在内容源，也不该回流到生成物。
+  assert.doesNotMatch(generated, /"directions":/);
+  for (const gone of ["Level 1｜生存层", "Level 2｜竞争层", "Level 3｜未来层", "横向诊断轴"]) {
+    assert.doesNotMatch(generated, new RegExp(gone), `生成物不应再包含已删除的总览判断「${gone}」`);
+  }
+  // 四—七章展开区不再展示内部工作流字段，它们同样不该流到生成物。
+  // 「情报维度」整行保留：终端／能力／竞对／归因仍是筛选与层级的唯一数据源，只是不再展示。
+  for (const field of ["证据标签", "成熟度与证据边界", "建议动作", "核验状态"]) {
+    assert.doesNotMatch(generated, new RegExp(`${field}[：:]`), `生成物不应包含内部字段「${field}」`);
+  }
+  // 本期 11 条已从「三、重点摘要」搬到四—七章，周期标题与锚点必须仍然成立。
+  assert.match(generated, /2026-09-21—2026-09-27/);
   assert.match(generated, /"id": "coocaa-customer-decision"/);
   assert.match(generated, /"attributions": \[\s+"资源\/商务问题"/);
   assert.match(generated, /"level": "L1-生存层"/);

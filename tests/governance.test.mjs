@@ -39,23 +39,10 @@ test("the Markdown source keeps the required report contract", async () => {
   assert.match(markdown, /L1-生存层/);
   assert.match(markdown, /L2-竞争层/);
   assert.match(markdown, /L3-未来层/);
-  // 五类归因必须在正文里有解释性说明（总览的「五类问题对应五类资源」+ 归因框架表）。
-  // 2026-09-18 决策 5：内容源已按定案补齐第五类，因此这里把断言扩为含「合规/法务问题」。
-  assert.match(markdown, /五类问题对应五类资源/);
-  assert.match(markdown, /能力问题[\s\S]*体验问题[\s\S]*资源\/商务问题[\s\S]*交付问题[\s\S]*合规\/法务问题/);
-  // 归因框架表（「问题归因矩阵」）必须与枚举逐行一致：五行、覆盖五个取值。
-  // 只改总览而漏改框架表时，上面那条 assert.match 仍会通过（它只要有顺序即成立），
-  // 所以这条按「行数 + 取值集合」全量校验，才能拦住漏改一行这种回退。
-  const frameworkLines = markdown.split(/\r?\n/);
-  const frameworkStart = frameworkLines.findIndex((line) => line.startsWith("| 业务现象 | 首要归因 |"));
-  assert.ok(frameworkStart >= 0, "归因框架表缺失（表头「| 业务现象 | 首要归因 |」）");
-  const frameworkRows = frameworkLines.slice(frameworkStart + 2, frameworkStart + 8)
-    .filter((line) => line.startsWith("|"));
-  assert.equal(frameworkRows.length, 5, "归因框架表必须有五行（四值 + 合规/法务问题）");
-  for (const attribution of ["能力问题", "体验问题", "资源/商务问题", "交付问题", "合规/法务问题"]) {
-    assert.ok(frameworkRows.some((line) => line.includes(`| ${attribution} |`)),
-      `归因框架表缺少「${attribution}」一行`);
-  }
+  // 归因五值的解释性载体（总览「五类问题对应五类资源」与七章「问题归因矩阵」表）已于
+  // 2026-09-24 随总览整块与七章内部字段一并删除，因此这里不再断言正文里有两处解释。
+  // 归因枚举本身仍是封闭五值，执行点是 content/facet-taxonomy.json 的逐行登记
+  // （「情报维度取值必须登记在受控词表内」），口径记录在 docs/CONTENT_SCHEMA.md §6.1/§6.2。
 
   const periodHeadings = markdown.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
   assert.ok(periodHeadings.length >= 1, "at least one normalized period heading is required");
@@ -103,18 +90,22 @@ test("governance documents describe the same source-of-truth boundary", async ()
   assert.match(schema, /资源\/商务问题/);
 });
 
-test("文档说明 covers scope and the dual-track definition", async () => {
-  // 源码是 CRLF，这里统一成 LF，便于对「空行分块」做逐字断言。
+test("文档说明 covers scope and both content kinds", async () => {
+  // 源码按 LF 处理，便于对「空行分块」做逐字断言。
   const markdown = (await readProjectFile("content/行业动态追踪.md")).replace(/\r\n/g, "\n");
 
   // 一、文档说明 must declare a 内容覆盖 subsection.
   assert.match(markdown, /^## 内容覆盖$/m, "文档说明必须包含“内容覆盖”小节");
 
-  // 内容覆盖 keeps the dual-track definition (previously buried under 更新方式),
-  // so the report is not read as operator-acceptance-only.
+  // 2026-09-24：内容覆盖由「双轨制（轨道 A／轨道 B）」改写为「五类外部变化 + 两类不同性质的变化」。
+  // 断言的职责没有变——它守的是「报告不等于运营商验收口径」：必须同时声明前沿探索与业务落地
+  // 两类内容。这里按新表述校验，不再锁定已删除的轨道命名。
   const docSection = markdown.split(/^二、总览$/m)[0];
-  assert.match(docSection, /轨道 A｜交互体验与 AI 前沿战略雷达/);
-  assert.match(docSection, /轨道 B｜业务落地与产业约束雷达/);
+  for (const dimension of ["模型与算法", "终端与硬件", "产品与体验", "政策与标准", "竞品与标杆公司"]) {
+    assert.match(docSection, new RegExp(`^- \\*\\*${dimension}\\*\\*：`, "m"), `内容覆盖缺少「${dimension}」一类外部变化`);
+  }
+  assert.match(docSection, /两类不同性质的变化：\n\*\*前沿探索类\*\*：/, "内容覆盖必须声明「前沿探索类」");
+  assert.match(docSection, /\*\*业务落地类\*\*：/, "内容覆盖必须声明「业务落地类」");
 
   // 2026-09-14：删掉「轨道划分决定一条情报要回答到什么程度…」和「信息源按固定源、
   // 专项源和线索源三类管理…」两段。理由：前者是对双轨制的二次解释，正文里读起来是
@@ -148,33 +139,84 @@ test("the narrow-viewport nav wraps instead of clipping chapters", async () => {
   assert.doesNotMatch(navListBlock, /overflow-x: auto/, "窄视口导航不应再使用横向滚动");
 });
 
-test("总览 keeps the four numbered judgements that feed the directions cards", async () => {
+test("总览只保留三个事实层，不再带优先级与行动判断整块", async () => {
   const markdown = (await readProjectFile("content/行业动态追踪.md")).replace(/\r\n/g, "\n");
 
   const overview = markdown.split(/^二、总览$/m)[1]?.split(/^三、重点摘要$/m)[0] ?? "";
   assert.ok(overview.length > 0, "总览 章节必须存在");
 
-  // Contract only: these four numbered judgements are the sole data source of
-  // the page's 竞争判断分层 cards (report.directions). sync-content.mjs reads
-  // `^数字.` lines (number ≤ 4) and takes the next NON-EMPTY line as the card
-  // detail, so the numbering must stay 1—4 and each entry keeps a detail line.
-  // The surrounding narrative layers (【能力层】etc.) are presentation only and
-  // are deliberately NOT asserted here — see docs/CONTENT_SCHEMA.md「总览结构」.
-  const judgements = [
-    "Level 1｜生存层：准入与内容闭环",
-    "Level 2｜竞争层：自然交互与真实场景",
-    "Level 3｜未来层：任务编排与跨端智能",
-    "横向诊断轴｜先归因，再投入",
-  ];
-  const overviewLines = overview.split("\n");
-  judgements.forEach((title, index) => {
-    assert.match(overview, new RegExp(`^${index + 1}\\. ${title}$`, "m"),
-      `总览必须保留第 ${index + 1} 条判断：${title}`);
-    // 与 sync-content.mjs 一致：跳过空行后取第一条非空行作为卡片说明。
-    const line = overviewLines.findIndex((value) => value.trim() === `${index + 1}. ${title}`);
-    const detail = (overviewLines.slice(line + 1).find((value) => value.trim()) ?? "").trim();
-    assert.ok(detail.length > 0, `第 ${index + 1} 条判断必须紧跟一行说明`);
-  });
+  // 2026-09-24：删去「我们自己｜优先级与行动判断」整块及其尾部章节标记，页面
+  // 「竞争判断分层」卡片（report.directions）随之移除。三个事实层（能力层／产品层／产业层）
+  // 与各自的「→ 对应章节：」标记保留。这里做反向断言，防止整块回流。
+  for (const gone of ["【我们自己｜优先级与行动判断】", "【团队优先级与行动判断】",
+    "Level 1｜", "Level 2｜", "Level 3｜", "横向诊断轴"]) {
+    assert.doesNotMatch(overview, new RegExp(gone), `总览不应再包含「${gone}」`);
+  }
+  for (const layer of ["【能力层】", "【产品层】", "【产业层】"]) {
+    assert.match(overview, new RegExp(`^${layer}`, "m"), `总览必须保留「${layer}」`);
+  }
+  assert.match(overview, /^→ 对应章节：六、技术革新$/m);
+  assert.match(overview, /^→ 对应章节：五、产品动态、七、竞品与标杆公司动态$/m);
+  assert.match(overview, /^→ 对应章节：四、行业动态$/m);
+  assert.doesNotMatch(overview, /^→ 对应章节：八、公司内部进展$/m,
+    "总览不应再指向第八章：该标记属于已删除的「我们自己」整块");
+});
+
+test("三、重点摘要只保留摘要表格，详细条目已移入四—七章", async () => {
+  const markdown = (await readProjectFile("content/行业动态追踪.md")).replace(/\r\n/g, "\n");
+
+  const summary = markdown.split(/^三、重点摘要$/m)[1]?.split(/^四、行业动态$/m)[0] ?? "";
+  assert.ok(summary.length > 0, "重点摘要 章节必须存在");
+
+  // 2026-09-24：三章曾同时承载「详细条目」与「摘要表格」，同一条信息出现三种形态。
+  // 现在详细条目移到四—七章对应位置，三章只剩按周分组的摘要表。
+  assert.doesNotMatch(summary, /^#### /m, "三章不应再出现 #### 详细条目");
+  const periods = summary.match(/^## \d{4}-\d{2}-\d{2}—\d{4}-\d{2}-\d{2}$/gm) ?? [];
+  assert.ok(periods.length >= 1, "三章必须保留按周分组的周期标题");
+  assert.equal(new Set(periods).size, periods.length, `三章周期标题不得重复：${periods.join("、")}`);
+  const rows = summary.split(/\r?\n/).filter((line) => line.startsWith("|")
+    && !/^\|[-|\s]+\|$/.test(line) && !line.includes("| 事件 |"));
+  assert.ok(rows.length > 0, "三章必须保留摘要表数据行");
+
+  // 摘要表里的「查看详情」锚点必须在正文里能找到对应条目（sync-content 会硬失败，这里提前拦）。
+  const anchors = [...summary.matchAll(/\[查看详情\]\(#([a-z0-9-]+)\)/g)].map((match) => match[1]);
+  assert.ok(anchors.length > 0, "三章摘要表必须带 [查看详情](#锚点)");
+  for (const anchor of anchors) {
+    assert.match(markdown, new RegExp(`\\{#${anchor}\\}`),
+      `摘要表锚点 #${anchor} 在正文里找不到对应条目`);
+  }
+});
+
+test("四—七章展开区不再包含内部工作流字段", async () => {
+  const markdown = (await readProjectFile("content/行业动态追踪.md")).replace(/\r\n/g, "\n");
+
+  const live = markdown.split(/^四、行业动态$/m)[1]?.split(/^八、公司内部进展$/m)[0] ?? "";
+  assert.ok(live.length > 0, "第四至第七章必须存在");
+
+  // 2026-09-24 决策：保守口径，只删列出的四类内部字段。同义的其它字段名
+  // （判断边界／证据边界／标签／技术剖析等）不在本轮范围，故不在此断言。
+  for (const field of ["证据标签", "成熟度与证据边界", "建议动作", "核验状态"]) {
+    assert.doesNotMatch(live, new RegExp(`^(?:\\d+\\.\\s*|- )?\\*{0,2}${field}[：:]`, "m"),
+      `四—七章不应再出现「${field}」字段`);
+  }
+
+  // 「情报维度」整行必须保留：层级、终端、能力、竞对、归因仍由它供给筛选与卡片层级，
+  // 只是不再在卡片正面与展开区展示（见 app/trend-explorer.tsx）。
+  assert.match(live, /^情报维度：终端=.+；能力=.+；.*层级=L[123]-/m,
+    "情报维度整行必须保留（它是筛选与层级的唯一数据源）");
+  const dimensions = live.match(/^情报维度：.+$/gm) ?? [];
+  assert.ok(dimensions.length >= 40, `四—七章 情报维度 行数异常：${dimensions.length}`);
+
+  // §七 另有五个只出现在第七章（客户决策专题）的内部字段，同日一并删除。
+  // 其中「来源与边界」原文提到内部材料名，属于公开面泄露面，这里连材料名一起反向断言。
+  const ch7 = markdown.split(/^七、竞品与标杆公司动态$/m)[1]?.split(/^八、公司内部进展$/m)[0] ?? "";
+  assert.ok(ch7.length > 0, "第七章必须存在");
+  for (const field of ["客户为什么买单", "四类决策场景", "竞争位置", "问题归因矩阵", "来源与边界"]) {
+    assert.doesNotMatch(ch7, new RegExp(`^(?:\\d+\\.\\s*|- )?\\*{0,2}${field}[：:]`, "m"),
+      `七章不应再出现内部字段「${field}」`);
+  }
+  assert.match(ch7, /\*\*竞争判断：\*\*/, "七章必须保留「竞争判断」（读者最想看的部分）");
+  assert.doesNotMatch(ch7, /前期客户需求调研/, "公开内容源不得出现内部材料名");
 });
 
 test("章节渲染器不再向 Markdown 注入裸标题标签", async () => {

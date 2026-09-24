@@ -114,7 +114,7 @@ const summarizeDetail = (body) => {
       .replace(/[*_`|]/g, "")
       .trim())
     .find((item) => item.length >= 24
-      && !/^(判断状态|标签|发布时间|核验状态|来源)[：:]/.test(item)
+      && !/^(判断状态|标签|发布时间|核验状态|来源|证据标签|成熟度与证据边界|建议动作)[：:]/.test(item)
       && !item.startsWith("http"));
   if (!line) return "进入条目查看事实、判断边界与后续动作。";
   return `${line.slice(0, 110)}${line.length > 110 ? "…" : ""}`;
@@ -198,20 +198,6 @@ for (const section of sections) {
   });
 }
 
-const overviewBody = sections.find((section) => section.title === "总览")?.body ?? "";
-const overviewLines = overviewBody.split("\n").map((line) => line.trim()).filter(Boolean);
-const directions = [];
-for (let index = 0; index < overviewLines.length; index += 1) {
-  const match = overviewLines[index].match(/^(\d+)\.\s*(.+)$/);
-  if (match && Number(match[1]) <= 4) {
-    directions.push({
-      index: match[1],
-      title: match[2],
-      detail: overviewLines[index + 1] ?? "",
-    });
-  }
-}
-
 const highlights = [];
 const summaryBody = sections.find((section) => section.title === "重点摘要")?.body ?? "";
 // 表格按 `## YYYY-MM-DD—YYYY-MM-DD` 分周；把周区间带给每条 highlight，
@@ -260,12 +246,10 @@ const report = {
   coverage,
   sourceName: path.basename(source),
   sourceUpdatedAt: sourceStat.mtime.toISOString(),
-  directions,
   highlights,
   sections,
   intelligenceItems: sections.flatMap((section) => section.intelligenceItems),
   metrics: {
-    directions: directions.length,
     highlights: highlights.length,
     sections: sections.length,
     sources: officialLinks.size,
