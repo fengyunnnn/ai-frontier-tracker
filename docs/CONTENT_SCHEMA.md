@@ -265,6 +265,9 @@
 | 2026-10-10 | competitors | vivo | vivo OriginOS 7 小V Pro（五、产品动态，`vivo-originos-7-xiaov-pro`） |
 | 2026-10-10 | competitors | OPPO | OPPO ColorOS 17（五、产品动态，`oppo-coloros-17`） |
 | 2026-10-10 | competitors | 斑马 | 斑马 AutoOmni 2.0（六、技术革新，`banma-autoomni-2-23b`） |
+| 2026-10-13 | capabilities | 语义理解 | 理解层（NLU／意图／上下文／多轮／指代消解）；正文 37 条命中而词表无对应能力值 |
+| 2026-10-13 | competitors | 华为 | 鸿蒙／小艺；正文 6 条落点（首次落点待 B8 回填） |
+| 2026-10-13 | **新增维度** | 开源学术（`openSource`） | KRAFTON／FireRedTeam／Hugging Face／IndexTTS；单列承载开源·研究主体 |
 
 规则：
 
@@ -272,6 +275,8 @@
 - **新增值必须写进 `content/facet-taxonomy.json` 的 `canonical` 数组**才算登记完成；`aliases`／`placeholders`／`deprecated` 各有其位，不能混用；
 - **必须先跑「试挂」再改内容源**：只改词表、不改内容源，重跑同步脚本，确认 `app/content.generated.ts` **逐字节不变**（证明扩表零产物影响），再写入内容；
 - 同步更新词表的 `updatedAt`，并在 `decisions.resolved` 追加一条记录；**`version` 不因新增取值而升级**（升级会改变 `derived` 产物）。
+
+**新增维度（2026-10-13）**：除五个既有维度外，新增第六维 `开源学术`（key `openSource`）。它不是「竞对」的子集，也不是技术来源：按 2026-09-18 规则 2，开源/研究主体不得挂在竞对维度，此前只能登记为 `deprecated`（无法筛选）；本维度给它们一个**可筛选的容器**。取值样本 4 个：`KRAFTON`、`FireRedTeam`、`Hugging Face`、`IndexTTS`。在 `情报维度` 行里为**可选字段**（`开源学术=…`，与 `竞对` 并列、位置紧随其后）；生成物字段名 `openSource`；前端筛选器仅在**该维有取值时**才渲染。⚠️ `IndexTTS` 系模型名，主体归属（疑为哔哩哔哩）待复核。
 
 ## 7. 公司内部进展
 

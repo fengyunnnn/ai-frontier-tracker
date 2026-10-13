@@ -229,6 +229,7 @@ export function TrendExplorer() {
   const [competitorFilter, setCompetitorFilter] = useState("all");
   const [attributionFilter, setAttributionFilter] = useState("all");
   const [levelFilter, setLevelFilter] = useState("all");
+  const [openSourceFilter, setOpenSourceFilter] = useState("all");
   const [readingMode, setReadingMode] = useState<ReadingMode>("single");
   const [highlightPeriod, setHighlightPeriod] = useState("");
   const [railSection, setRailSection] = useState<string>(railTargets[0].id);
@@ -346,6 +347,7 @@ export function TrendExplorer() {
       competitors: unique(report.intelligenceItems.map((item) => item.competitors)),
       attributions: unique(report.intelligenceItems.map((item) => item.attributions)),
       levels: [...new Set(report.intelligenceItems.map((item) => item.level))].sort(),
+      openSource: unique(report.intelligenceItems.map((item) => item.openSource)),
     };
   }, []);
 
@@ -355,9 +357,10 @@ export function TrendExplorer() {
     && (competitorFilter === "all" || item.competitors.includes(competitorFilter as never))
     && (attributionFilter === "all" || item.attributions.includes(attributionFilter as never))
     && (levelFilter === "all" || item.level === levelFilter)
-  )), [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter]);
+    && (openSourceFilter === "all" || item.openSource.includes(openSourceFilter as never))
+  )), [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter, openSourceFilter]);
 
-  const facetsAreActive = [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter]
+  const facetsAreActive = [terminalFilter, capabilityFilter, competitorFilter, attributionFilter, levelFilter, openSourceFilter]
     .some((value) => value !== "all");
 
   /**
@@ -387,6 +390,7 @@ export function TrendExplorer() {
     setCompetitorFilter("all");
     setAttributionFilter("all");
     setLevelFilter("all");
+    setOpenSourceFilter("all");
   };
 
   const chooseSection = (section: Section) => {
@@ -553,6 +557,15 @@ export function TrendExplorer() {
                   {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
                 </select>
               </label>
+              {facetOptions.openSource.length > 0 && (
+                <label>
+                  <span>开源学术</span>
+                  <select value={openSourceFilter} onChange={(event) => setOpenSourceFilter(event.target.value)}>
+                    <option value="all">全部开源学术</option>
+                    {facetOptions.openSource.map((value) => <option value={value} key={value}>{value}</option>)}
+                  </select>
+                </label>
+              )}
               <label>
                 <span>问题归因</span>
                 <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
@@ -680,6 +693,15 @@ export function TrendExplorer() {
                     {facetOptions.competitors.map((value) => <option value={value} key={value}>{value}</option>)}
                   </select>
                 </label>
+                {facetOptions.openSource.length > 0 && (
+                  <label>
+                    <span>开源学术</span>
+                    <select value={openSourceFilter} onChange={(event) => setOpenSourceFilter(event.target.value)}>
+                      <option value="all">全部开源学术</option>
+                      {facetOptions.openSource.map((value) => <option value={value} key={value}>{value}</option>)}
+                    </select>
+                  </label>
+                )}
                 <label>
                   <span>问题归因</span>
                   <select value={attributionFilter} onChange={(event) => setAttributionFilter(event.target.value)}>
