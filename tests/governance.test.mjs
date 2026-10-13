@@ -362,6 +362,7 @@ const facetDimensionByKey = {
   竞对: "competitors",
   归因: "attributions",
   层级: "levels",
+  开源学术: "openSource",
 };
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

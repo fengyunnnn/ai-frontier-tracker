@@ -200,6 +200,12 @@ for (const section of sections) {
         "competitors",
         parsed.metadata["竞对"] ?? inferValues(searchable, intelligenceTaxonomy.competitors),
       ),
+      // 开源/研究主体单列一个维度（2026-10-13 B1）：不进竞对，也不并入能力；仅在内容显式
+      // 挂「开源学术=…」时才有值，不做关键词自动推断，避免把「开源」这类泛词误扩。
+      openSource: normalizeFacetValues(
+        "openSource",
+        parsed.metadata["开源学术"] ?? [],
+      ),
       // 归因与层级是受枚举约束的封闭取值（tests/governance.test.mjs 用正则强校验），不做别名归一。
       attributions: parsed.metadata["归因"] ?? ["待归因"],
       level: parsed.metadata["层级"]?.[0] ?? "待分层",
